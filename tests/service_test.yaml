@@ -50,7 +50,6 @@ tests:
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: iap
             app.kubernetes.io/version: 6.0.4
-            helm.sh/chart: iap-1.0.0
 
   - it: should include selector labels
     set:
