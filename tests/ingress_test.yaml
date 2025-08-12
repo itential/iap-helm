@@ -897,3 +897,50 @@ tests:
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.port.number
           value: 8443
+
+  - it: Should have the expected standard annotations
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: true
+          host: test.example.com
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      service:
+        port: 8443
+      replicaCount: 1
+    asserts:
+      - hasDocuments:
+          count: 1
+      - exists:
+          path: metadata.annotations["kubernetes.io/description"]
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: Should allow for custom annotations
+    set:
+      ingress:
+        enabled: true
+        annotations:
+          foo: "bar"
+        loadBalancer:
+          enabled: true
+          host: test.example.com
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      service:
+        port: 8443
+      replicaCount: 1
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.annotations["foo"]
+          value: "bar"

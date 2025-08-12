@@ -219,7 +219,7 @@ tests:
       certificate.domain: "example.com"
       certificate.renewBefore: "720h"
       certificate.duration: "2160h"
-      replicaCount: 1
+      replicaCount: "1"
     asserts:
       - hasDocuments:
           count: 1
@@ -229,3 +229,46 @@ tests:
       - contains:
           path: spec.dnsNames
           content: "special-chars.example.com"
+
+  - it: Should have the expected standard annotations
+    set:
+      certificate.enabled: true
+      certificate.issuerRef.name: "test-issuer"
+      certificate.issuerRef.kind: "ClusterIssuer"
+      certificate.commonName: "special-chars.example.com"
+      certificate.domain: "example.com"
+      certificate.renewBefore: "720h"
+      certificate.duration: "2160h"
+      replicaCount: "1"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - exists:
+          path: metadata.annotations["kubernetes.io/description"]
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: Should allow for custom annotations
+    set:
+      replicaCount: 1
+      certificate:
+        enabled: true
+        issuerRef:
+          name: "test-issuer"
+          kind: "ClusterIssuer"
+        commonName: "special-chars.example.com"
+        domain: "example.com"
+        renewBefore: "720h"
+        duration: "2160h"
+        annotations:
+          foo: "bar"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.annotations["foo"]
+          value: "bar"
