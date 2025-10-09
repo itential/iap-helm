@@ -185,9 +185,6 @@ spec:
             secretName: {{ include "iap.fullname" . }}-tls-secret
         {{- end }}
         {{- if and .Values.processExporter .Values.processExporter.enabled }}
-        - name: platform-cert-volume
-          secret:
-            secretName: {{ include "iap.fullname" . }}-tls-secret
         - name: process-exporter
           configMap:
             name: iap-process-exporter
