@@ -26,5 +26,6 @@ spec:
     matchNames: [ {{ .Release.namespace }} ]
   selector:
     matchLabels:
-      app.kubernetes.io/name: iap
+      app.kubernetes.io/name: {{ include "iap.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}

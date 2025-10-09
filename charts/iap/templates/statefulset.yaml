@@ -139,12 +139,12 @@ spec:
           {{- end }}
           {{- if .Values.mountLogVolume }}
           # Uses a persistent volume claim to mount a directory to write IAP log files to
-          - name: "iap-logs-volume"
+          - name: "{{ include "iap.fullname" . }}-logs-volume"
             mountPath: "/var/log/itential"
           {{- end }}
           {{- if .Values.mountAdapterVolume }}
           # Uses a persistent volume claim to mount a directory that includes adapters and apps
-          - name: "iap-assets-volume"
+          - name: "{{ include "iap.fullname" . }}-assets-volume"
             mountPath: "/opt/itential/platform/services/custom"
           {{- end }}
         {{- with .Values.volumeMounts }}
@@ -187,7 +187,7 @@ spec:
         {{- if and .Values.processExporter .Values.processExporter.enabled }}
         - name: process-exporter
           configMap:
-            name: iap-process-exporter
+            name: {{ include "iap.fullname" . }}-process-exporter
         {{- end }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
@@ -207,7 +207,7 @@ spec:
   {{- if .Values.persistentVolumeClaims.enabled }}
   volumeClaimTemplates:
     - metadata:
-        name: "iap-assets-volume"
+        name: "{{ include "iap.fullname" . }}-assets-volume"
       spec:
         accessModes:
           - "ReadWriteOnce"
@@ -216,7 +216,7 @@ spec:
             storage: {{ .Values.persistentVolumeClaims.assetClaim.storage }}
         storageClassName: {{ .Values.storageClass.name }}
     - metadata:
-        name: "iap-logs-volume"
+        name: "{{ include "iap.fullname" . }}-logs-volume"
       spec:
         accessModes:
           - "ReadWriteOnce"
