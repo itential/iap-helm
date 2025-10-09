@@ -14,7 +14,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  secretName: {{ include "iap.fullname" . }}-tls-secret
+  secretName: {{ .Values.certificate.secretName | default (printf "%s-tls-secret" (include "iap.fullname" .)) }}
   issuerRef:
     name: {{ .Values.certificate.issuerRef.name }}
     kind: {{ .Values.certificate.issuerRef.kind }}

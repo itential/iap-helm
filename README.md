@@ -85,8 +85,8 @@ kubectl get crds | grep cert-manager
 For more information see the [Cert Manager project](https://cert-manager.io/).
 
 If `cert-manager` can not be used then the TLS certificates must be manually added to the Kubernetes
-cluster. The Helm templates expect them to be in a secret named `<Chart.name>-tls-secret`. It
-expects the following keys:
+cluster. The Helm templates expect them to be in a secret named `<Chart.name>-tls-secret` by default,
+or a custom name specified by `certificate.secretName` in values.yaml. The secret expects the following keys:
 
 | Key | Description |
 |:----|:------------|
@@ -142,6 +142,7 @@ understand.
 | certificate.domain | string | `"example.com"` | The domain to use when creating certificates. This will be used by the templates to build a complete list of hosts to enable direct access to individual pods. Some UI actions in Itential require direct access to pods. |
 | certificate.duration | string | `"2160h"` | Specifies how long the certificate should be valid for (its lifetime). |
 | certificate.enabled | bool | `false` | Toggle to use the certificate object or not |
+| certificate.secretName | string | `""` | The name of the secret where the TLS certificate will be stored. If empty, defaults to `<Chart.name>-tls-secret` |
 | certificate.issuerRef.kind | string | `"Issuer"` | The issuer type |
 | certificate.issuerRef.name | string | `"iap-ca-issuer"` | The name of the issuer with the CA reference. |
 | certificate.renewBefore | string | `"48h"` | Specifies how long before the certificate expires that cert-manager should try to renew. |

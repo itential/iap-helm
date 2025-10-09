@@ -182,7 +182,7 @@ spec:
         {{- if .Values.useTLS }}
         - name: platform-cert-volume
           secret:
-            secretName: {{ include "iap.fullname" . }}-tls-secret
+            secretName: {{ .Values.certificate.secretName | default (printf "%s-tls-secret" (include "iap.fullname" .)) }}
         {{- end }}
         {{- if and .Values.processExporter .Values.processExporter.enabled }}
         - name: process-exporter
