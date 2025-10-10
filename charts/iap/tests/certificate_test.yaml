@@ -55,7 +55,7 @@ tests:
           content: "iap.example.com"
       - matchRegex:
           path: spec.dnsNames[1]
-          pattern: ".*iap-0\\.example.com"
+          pattern: ".*iap-NAMESPACE-0\\.example.com"
       - lengthEqual:
           path: spec.dnsNames
           count: 2
@@ -91,13 +91,13 @@ tests:
           content: "iap.staging.com"
       - matchRegex:
           path: spec.dnsNames[1]
-          pattern: ".*iap-0\\.staging.com"
+          pattern: ".*iap-NAMESPACE-0\\.staging.com"
       - matchRegex:
           path: spec.dnsNames[2]
-          pattern: ".*iap-1\\.staging.com"
+          pattern: ".*iap-NAMESPACE-1\\.staging.com"
       - matchRegex:
           path: spec.dnsNames[3]
-          pattern: ".*iap-2\\.staging.com"
+          pattern: ".*iap-NAMESPACE-2\\.staging.com"
       - lengthEqual:
           path: spec.dnsNames
           count: 4
@@ -182,10 +182,10 @@ tests:
           content: "test.com"
       - matchRegex:
           path: spec.dnsNames[1]
-          pattern: ".*iap-0\\.test.com"
+          pattern: ".*iap-NAMESPACE-0\\.test.com"
       - matchRegex:
           path: spec.dnsNames[2]
-          pattern: ".*iap-1\\.test.com"
+          pattern: ".*iap-NAMESPACE-1\\.test.com"
       - lengthEqual:
           path: spec.dnsNames
           count: 3
