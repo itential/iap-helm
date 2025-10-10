@@ -366,13 +366,13 @@ tests:
           count: 3
       - equal:
           path: spec.rules[0].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[1].host
-          value: iap-NAMESPACE-1.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-1.example.com
       - equal:
           path: spec.rules[2].host
-          value: iap-NAMESPACE-2.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-2.example.com
 
   - it: should not create direct access rules when disabled
     set:
@@ -492,7 +492,7 @@ tests:
           count: 1
       - equal:
           path: spec.rules[0].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
           value: RELEASE-NAME-iap-service-headless-0
@@ -515,10 +515,10 @@ tests:
           count: 5
       - equal:
           path: spec.rules[0].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[4].host
-          value: iap-NAMESPACE-4.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-4.example.com
       - equal:
           path: spec.rules[4].http.paths[0].backend.service.name
           value: RELEASE-NAME-iap-service-headless-4
@@ -570,19 +570,19 @@ tests:
       # Direct access rules
       - equal:
           path: spec.rules[1].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.name
           value: RELEASE-NAME-iap-service-headless-0
       - equal:
           path: spec.rules[2].host
-          value: iap-NAMESPACE-1.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-1.example.com
       - equal:
           path: spec.rules[2].http.paths[0].backend.service.name
           value: RELEASE-NAME-iap-service-headless-1
       - equal:
           path: spec.rules[3].host
-          value: iap-NAMESPACE-2.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-2.example.com
       - equal:
           path: spec.rules[3].http.paths[0].backend.service.name
           value: RELEASE-NAME-iap-service-headless-2
@@ -655,10 +655,10 @@ tests:
           value: lb.example.com
       - equal:
           path: spec.rules[1].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[2].host
-          value: iap-NAMESPACE-1.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-1.example.com
 
   - it: should handle load balancer only configuration
     set:
@@ -701,10 +701,10 @@ tests:
           count: 2
       - equal:
           path: spec.rules[0].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[1].host
-          value: iap-NAMESPACE-1.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-1.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
           value: RELEASE-NAME-iap-service-headless-0
@@ -731,10 +731,10 @@ tests:
           count: 3
       - equal:
           path: spec.rules[0].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[2].host
-          value: iap-NAMESPACE-2.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-2.example.com
 
   - it: should handle complex base domain
     set:
@@ -751,10 +751,10 @@ tests:
     asserts:
       - equal:
           path: spec.rules[0].host
-          value: iap-NAMESPACE-0.subdomain.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.subdomain.example.com
       - equal:
           path: spec.rules[1].host
-          value: iap-NAMESPACE-1.subdomain.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-1.subdomain.example.com
 
   - it: should handle complex annotations
     set:
@@ -869,10 +869,10 @@ tests:
           count: 10
       - equal:
           path: spec.rules[0].host
-          value: iap-NAMESPACE-0.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[9].host
-          value: iap-NAMESPACE-9.example.com
+          value: RELEASE-NAME-iap-NAMESPACE-9.example.com
       - equal:
           path: spec.rules[9].http.paths[0].backend.service.name
           value: RELEASE-NAME-iap-service-headless-9

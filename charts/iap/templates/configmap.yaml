@@ -6,7 +6,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: iap-process-exporter
+  name: {{ include "iap.fullname" . }}-process-exporter
   labels:
     {{- include "iap.labels" . | nindent 4 }}
     app.kubernetes.io/component: "iap-process-exporter-configMap"

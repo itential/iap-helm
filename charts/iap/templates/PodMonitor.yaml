@@ -3,7 +3,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: iap-process-exporter
+  name: {{ include "iap.fullname" . }}-process-exporter
   labels:
     {{- include "iap.labels" . | nindent 4 }}
     app.kubernetes.io/component: "podmonitor"
@@ -26,5 +26,6 @@ spec:
     matchNames: [ {{ .Release.namespace }} ]
   selector:
     matchLabels:
-      app.kubernetes.io/name: iap
+      app.kubernetes.io/name: {{ include "iap.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}

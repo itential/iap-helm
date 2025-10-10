@@ -18,7 +18,7 @@ tests:
           of: v1
       - equal:
           path: metadata.name
-          value: iap-process-exporter
+          value: RELEASE-NAME-iap-process-exporter
 
   - it: should not create ConfigMap when processExporter is disabled
     set:
@@ -136,7 +136,7 @@ tests:
           of: ConfigMap
       - equal:
           path: metadata.name
-          value: iap-process-exporter
+          value: RELEASE-NAME-iap-process-exporter
 
   - it: should work with default values from values.yaml
     values:
@@ -151,7 +151,7 @@ tests:
           of: ConfigMap
       - equal:
           path: metadata.name
-          value: iap-process-exporter
+          value: RELEASE-NAME-iap-process-exporter
       - exists:
           path: data["process-exporter.conf"]
       - exists:
