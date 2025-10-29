@@ -1,0 +1,109 @@
+suite: test process-exporter configmap
+templates:
+  - configmap.yaml
+tests:
+  # Test ConfigMap creation when processExporter is enabled and useTLS is true
+  - it: should create process-exporter configmap with TLS configuration when useTLS is true
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: iap-process-exporter
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: iap-process-exporter-configMap
+      - matchRegex:
+          path: data["web-config.yaml"]
+          pattern: tls_server_config
+      - matchRegex:
+          path: data["web-config.yaml"]
+          pattern: cert_file.*tls\.crt
+      - matchRegex:
+          path: data["web-config.yaml"]
+          pattern: key_file.*tls\.key
+
+  # Test ConfigMap creation when processExporter is enabled and useTLS is false
+  - it: should create process-exporter configmap with empty web-config when useTLS is false
+    set:
+      processExporter.enabled: true
+      useTLS: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: iap-process-exporter
+      - notMatchRegex:
+          path: data["web-config.yaml"]
+          pattern: tls_server_config
+      - equal:
+          path: data["web-config.yaml"]
+          value: |
+
+  # Test ConfigMap contains process-exporter configuration
+  - it: should contain process-exporter configuration
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - matchRegex:
+          path: data["process-exporter.conf"]
+          pattern: process_names
+      - matchRegex:
+          path: data["process-exporter.conf"]
+          pattern: Pronghorn
+      - matchRegex:
+          path: data["process-exporter.conf"]
+          pattern: python3
+
+  # Test ConfigMap is not created when processExporter is disabled
+  - it: should not create configmap when processExporter is disabled
+    set:
+      processExporter.enabled: false
+      useTLS: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # Test ConfigMap is not created when processExporter is not set
+  - it: should not create configmap when processExporter is not set
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # Test labels are correctly applied
+  - it: should have correct labels
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: iap
+      - equal:
+          path: metadata.labels["helm.sh/chart"]
+          value: iap-1.2.1
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: Helm
+
+  # Test annotations are correctly applied
+  - it: should have correct annotations
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Itential Automation Platform Process exporter configMap."

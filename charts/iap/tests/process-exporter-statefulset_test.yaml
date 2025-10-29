@@ -1,0 +1,207 @@
+suite: test process-exporter in statefulset
+templates:
+  - statefulset.yaml
+tests:
+  # Test process-exporter container with TLS enabled
+  - it: should include process-exporter container with web-config argument when TLS is enabled
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: StatefulSet
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: process-exporter
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -config.path=/etc/process-exporter/process-exporter.conf
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -children=false
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -recheck-with-time-limit=30s
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -threads=false
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -web.config.file=/etc/process-exporter/web-config.yaml
+
+  # Test process-exporter container without web-config argument when TLS is disabled
+  - it: should include process-exporter container without web-config argument when TLS is disabled
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      useTLS: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: StatefulSet
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 2
+      - equal:
+          path: spec.template.spec.containers[1].name
+          value: process-exporter
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -config.path=/etc/process-exporter/process-exporter.conf
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -children=false
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -recheck-with-time-limit=30s
+      - contains:
+          path: spec.template.spec.containers[1].args
+          content: -threads=false
+      - notContains:
+          path: spec.template.spec.containers[1].args
+          content: -web.config.file=/etc/process-exporter/web-config.yaml
+
+  # Test process-exporter container image configuration
+  - it: should use correct process-exporter image
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      processExporter.image.repository: ncabatoff/process-exporter
+      processExporter.image.tag: v0.7.10
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: ncabatoff/process-exporter:v0.7.10
+      - equal:
+          path: spec.template.spec.containers[1].imagePullPolicy
+          value: Always
+
+  # Test process-exporter container port configuration
+  - it: should configure process-exporter port correctly
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      processExporter.port: 9256
+      useTLS: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].ports
+          content:
+            containerPort: 9256
+            name: process-metrics
+            protocol: TCP
+
+  # Test process-exporter resources
+  - it: should configure process-exporter resources
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].resources.limits.memory
+          value: 50Mi
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.cpu
+          value: 100m
+      - equal:
+          path: spec.template.spec.containers[1].resources.requests.memory
+          value: 50Mi
+
+  # Test process-exporter volume mounts with TLS enabled
+  - it: should mount both process-exporter config and TLS certs when TLS is enabled
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: process-exporter
+            mountPath: /etc/process-exporter
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: platform-cert-volume
+            mountPath: /etc/ssl/platform
+            readOnly: true
+
+  # Test process-exporter volume mounts with TLS disabled
+  - it: should mount only process-exporter config when TLS is disabled
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      useTLS: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: process-exporter
+            mountPath: /etc/process-exporter
+      - notContains:
+          path: spec.template.spec.containers[1].volumeMounts
+          content:
+            name: platform-cert-volume
+
+  # Test shareProcessNamespace is enabled when process-exporter is enabled
+  - it: should enable shareProcessNamespace when process-exporter is enabled
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.template.spec.shareProcessNamespace
+          value: true
+
+  # Test process-exporter volumes are configured
+  - it: should configure process-exporter configmap volume
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: process-exporter
+            configMap:
+              name: iap-process-exporter
+
+  # Test no process-exporter container when disabled
+  - it: should not include process-exporter container when disabled
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: false
+      useTLS: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers
+          count: 1
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: iap
+      - notEqual:
+          path: spec.template.spec.shareProcessNamespace
+          value: true
+
+  # Test process-exporter with custom port
+  - it: should use custom port when specified
+    set:
+      statefulset.enabled: true
+      processExporter.enabled: true
+      processExporter.port: 9999
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].ports[0].containerPort
+          value: 9999

@@ -157,7 +157,9 @@ spec:
           - -children=false
           - -recheck-with-time-limit=30s
           - -threads=false
+          {{- if .Values.useTLS }}
           - -web.config.file=/etc/process-exporter/web-config.yaml
+          {{- end }}
         image: "{{ .Values.processExporter.image.repository }}:{{ .Values.processExporter.image.tag }}"
         imagePullPolicy: Always
         ports:
@@ -173,9 +175,11 @@ spec:
         volumeMounts:
           - name: process-exporter
             mountPath: /etc/process-exporter
+          {{- if .Values.useTLS }}
           - name: platform-cert-volume
             mountPath: /etc/ssl/platform
             readOnly: true
+          {{- end }}
       shareProcessNamespace: true
       {{- end }}
       volumes:
