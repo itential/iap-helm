@@ -1,0 +1,440 @@
+suite: test promtail configmap template
+templates:
+  - loki-promtail-configmap.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render Promtail configmap when disabled
+    set:
+      promtail:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render Promtail configmap when enabled
+    set:
+      promtail:
+        enabled: true
+        lokiUrl: "http://loki:3100/loki/api/v1/push"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - isAPIVersion:
+          of: v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-promtail-config"
+
+  - it: should have correct labels in metadata
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: "itential-platform"
+      - exists:
+          path: metadata.labels["app.kubernetes.io/version"]
+      - exists:
+          path: metadata.labels["helm.sh/chart"]
+
+  - it: should have correct annotations
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Promtail configuration for log collection."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should have config.yml in data
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - exists:
+          path: data
+      - exists:
+          path: data["config.yml"]
+
+  - it: should configure server section
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "server:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "http_listen_port: 3101"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "grpc_listen_port: 0"
+
+  - it: should configure positions section
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "positions:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "filename: /run/promtail/positions.yaml"
+
+  - it: should configure default Loki URL
+    set:
+      promtail:
+        enabled: true
+        lokiUrl: "http://loki:3100/loki/api/v1/push"
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "clients:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- url: http://loki:3100/loki/api/v1/push"
+
+  - it: should configure custom Loki URL
+    set:
+      promtail:
+        enabled: true
+        lokiUrl: "https://custom-loki.example.com/loki/api/v1/push"
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- url: https://custom-loki.example.com/loki/api/v1/push"
+
+  - it: should have scrape_configs section
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "scrape_configs:"
+
+  - it: should configure iap-logs job
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- job_name: iap-logs"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "static_configs:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- targets:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- localhost"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "labels:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "job: iap-logs"
+
+  - it: should configure IAP logs path with namespace
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__path__:"
+
+  - it: should configure IAP logs path with custom namespace
+    set:
+      promtail:
+        enabled: true
+    release:
+      namespace: "custom-ns"
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "custom-ns"
+
+  - it: should have pipeline stages for IAP logs
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "pipeline_stages:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- json:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "expressions:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "output: log"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "stream: stream"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "time: time"
+
+  - it: should configure timestamp parsing for IAP logs
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- timestamp:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "source: time"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "format: RFC3339Nano"
+
+  - it: should configure output stage for IAP logs
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- output:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "source: output"
+
+  - it: should configure kubernetes-pods job
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- job_name: kubernetes-pods"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "kubernetes_sd_configs:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- role: pod"
+
+  - it: should have relabel configs for kubernetes pods
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "relabel_configs:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "source_labels:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__meta_kubernetes_pod_controller_name"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__meta_kubernetes_pod_label_app_kubernetes_io_name"
+
+  - it: should configure pod metadata extraction
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__meta_kubernetes_pod_node_name"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__meta_kubernetes_namespace"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__meta_kubernetes_pod_name"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__meta_kubernetes_pod_container_name"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "__meta_kubernetes_pod_uid"
+
+  - it: should configure target labels
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "target_label: node_name"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "target_label: namespace"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "target_label: job"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "target_label: pod"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "target_label: container"
+
+  - it: should configure path replacement for kubernetes pods
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "target_label: __path__"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "replacement: /var/log/pods/\\*\\$1/\\*.log"
+
+  - it: should have CRI pipeline stage for kubernetes pods
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- cri: \\{\\}"
+
+  - it: should configure log level regex extraction
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "- regex:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "expression:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "\\?P<time>"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "\\?P<level>"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "\\?P<message>"
+
+  - it: should configure log level labels
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "labels:"
+
+  - it: should work with different release names
+    set:
+      promtail:
+        enabled: true
+        lokiUrl: "http://loki:3100/loki/api/v1/push"
+    release:
+      name: "custom-release"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-promtail-config"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "custom-release"
+
+  - it: should handle nameOverride
+    set:
+      promtail:
+        enabled: true
+      nameOverride: "custom-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-custom-name-promtail-config"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+
+  - it: should work with fullnameOverride
+    set:
+      promtail:
+        enabled: true
+      fullnameOverride: "custom-promtail-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-promtail-name-promtail-config"
+
+  - it: should have valid YAML structure
+    set:
+      promtail:
+        enabled: true
+        lokiUrl: "http://loki:3100/loki/api/v1/push"
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "^server:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "positions:\n.*filename:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "clients:\n.*- url:"
+
+  - it: should not contain sensitive information
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "password"
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "secret"
+      - notMatchRegex:
+          path: data["config.yml"]
+          pattern: "token"
+
+  - it: should have proper indentation in YAML config
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "server:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "scrape_configs:"
+      - matchRegex:
+          path: data["config.yml"]
+          pattern: "pipeline_stages:"

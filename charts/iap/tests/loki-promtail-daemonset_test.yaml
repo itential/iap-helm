@@ -1,0 +1,409 @@
+suite: test promtail daemonset template
+templates:
+  - loki-promtail-daemonset.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render Promtail daemonset when disabled
+    set:
+      promtail:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render Promtail daemonset when enabled with defaults
+    set:
+      promtail:
+        enabled: true
+        image:
+          repository: grafana/promtail
+          tag: 2.9.0
+          pullPolicy: IfNotPresent
+        lokiUrl: "http://loki:3100/loki/api/v1/push"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: DaemonSet
+      - isAPIVersion:
+          of: apps/v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-promtail"
+
+  - it: should have correct labels in metadata
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: "itential-platform"
+      - exists:
+          path: metadata.labels["app.kubernetes.io/version"]
+      - exists:
+          path: metadata.labels["helm.sh/chart"]
+
+  - it: should have correct annotations
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Promtail log collector for shipping logs to Loki."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should have correct selector labels
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - isSubset:
+          path: spec.selector.matchLabels
+          content:
+            app.kubernetes.io/name: "iap"
+            app.kubernetes.io/instance: "RELEASE-NAME"
+            app.kubernetes.io/component: "promtail"
+
+  - it: should have correct pod template labels
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - isSubset:
+          path: spec.template.metadata.labels
+          content:
+            app.kubernetes.io/name: "iap"
+            app.kubernetes.io/instance: "RELEASE-NAME"
+            app.kubernetes.io/component: "promtail"
+
+  - it: should configure container with default image settings
+    set:
+      promtail:
+        enabled: true
+        image:
+          repository: grafana/promtail
+          tag: 2.9.0
+          pullPolicy: IfNotPresent
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: "promtail"
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "grafana/promtail:2.9.0"
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "IfNotPresent"
+
+  - it: should configure container with custom image settings
+    set:
+      promtail:
+        enabled: true
+        image:
+          repository: custom/promtail
+          tag: latest
+          pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "custom/promtail:latest"
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "Always"
+
+  - it: should have correct command args
+    set:
+      promtail:
+        enabled: true
+        lokiUrl: "http://loki:3100/loki/api/v1/push"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "-config.file=/etc/promtail/config.yml"
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "-client.url=http://loki:3100/loki/api/v1/push"
+
+  - it: should have correct environment variables
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HOSTNAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+
+  - it: should have correct environment variables
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HOSTNAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+
+  - it: should have config volume mount
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /etc/promtail
+
+  - it: should have var-log volume mount
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: varlog
+            mountPath: /var/log
+            readOnly: true
+
+  - it: should have var-lib-docker volume mount
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: docker
+            mountPath: /var/lib/docker/containers
+            readOnly: true
+
+  - it: should have run-promtail volume mount
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: run
+            mountPath: /run/promtail
+
+  - it: should have correct volumes
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+            configMap:
+              name: "RELEASE-NAME-iap-promtail-config"
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: varlog
+            hostPath:
+              path: /var/log
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: docker
+            hostPath:
+              path: /var/lib/docker/containers
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: run
+            hostPath:
+              path: /run/promtail
+
+  - it: should configure default resource limits
+    set:
+      promtail:
+        enabled: true
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: "128Mi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: "100m"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: "64Mi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: "50m"
+
+  - it: should configure custom resource limits
+    set:
+      promtail:
+        enabled: true
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "300m"
+          requests:
+            memory: "256Mi"
+            cpu: "150m"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: "512Mi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: "300m"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: "256Mi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: "150m"
+
+  - it: should have container security context
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+
+  - it: should have container security context
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+
+  - it: should have service account
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: "RELEASE-NAME-iap-promtail"
+
+  - it: should have tolerations for all nodes
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.tolerations
+          count: 2
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            effect: NoSchedule
+            operator: Exists
+
+  - it: should work with different release names
+    set:
+      promtail:
+        enabled: true
+    release:
+      name: "custom-release"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "custom-release"
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: "custom-release-iap-promtail"
+
+  - it: should handle nameOverride
+    set:
+      promtail:
+        enabled: true
+      nameOverride: "custom-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-custom-name-promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+
+  - it: should validate required daemonset fields
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - exists:
+          path: spec.selector
+      - exists:
+          path: spec.template
+      - exists:
+          path: spec.template.spec.containers
+      - exists:
+          path: metadata.name
+      - exists:
+          path: metadata.labels
+
+  - it: should validate required daemonset fields
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - exists:
+          path: spec.selector
+      - exists:
+          path: spec.template
+      - exists:
+          path: spec.template.spec.containers
+      - exists:
+          path: metadata.name
+      - exists:
+          path: metadata.labels
