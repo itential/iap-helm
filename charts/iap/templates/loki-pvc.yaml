@@ -1,0 +1,22 @@
+{{- if .Values.loki.enabled -}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "iap.fullname" . }}-loki-storage
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "loki"
+  annotations:
+    kubernetes.io/description: "Persistent storage for Loki data."
+    {{- include "iap.annotations" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.loki.storage.storageClass }}
+  storageClassName: {{ .Values.loki.storage.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.loki.storage.size }}
+{{- end -}}

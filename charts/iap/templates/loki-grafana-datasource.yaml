@@ -1,0 +1,32 @@
+{{- if .Values.loki.enabled -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "iap.fullname" . }}-grafana-datasource
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "grafana-datasource"
+  annotations:
+    kubernetes.io/description: "Grafana datasource configuration for Loki."
+    {{- include "iap.annotations" . | nindent 4 }}
+data:
+  datasource.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://{{ include "iap.fullname" . }}-loki:{{ .Values.loki.httpPort }}
+      basicAuth: false
+      isDefault: true
+      version: 1
+      editable: false
+      jsonData:
+        maxLines: 1000
+        derivedFields:
+          - datasourceUid: prometheus
+            matcherRegex: "traceID=(\\w+)"
+            name: TraceID
+            url: "$${__value.raw}"
+{{- end -}}

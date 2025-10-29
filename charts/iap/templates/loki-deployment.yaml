@@ -1,0 +1,85 @@
+{{- if .Values.loki.enabled -}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "iap.fullname" . }}-loki
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "loki"
+  annotations:
+    kubernetes.io/description: "Loki log aggregation server for IAP logs."
+    {{- include "iap.annotations" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "iap.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: "loki"
+  template:
+    metadata:
+      labels:
+        {{- include "iap.labels" . | nindent 8 }}
+        app.kubernetes.io/component: "loki"
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+      - name: loki
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 10001
+        image: "{{ .Values.loki.image.repository }}:{{ .Values.loki.image.tag }}"
+        imagePullPolicy: {{ .Values.loki.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.loki.httpPort }}
+          protocol: TCP
+        - name: grpc
+          containerPort: {{ .Values.loki.grpcPort }}
+          protocol: TCP
+        args:
+        - -config.file=/etc/loki/local-config.yaml
+        - -target=all
+        env:
+        - name: JAEGER_AGENT_HOST
+          value: ""
+        - name: JAEGER_ENDPOINT
+          value: ""
+        - name: JAEGER_SAMPLER_TYPE
+          value: ""
+        - name: JAEGER_SAMPLER_PARAM
+          value: ""
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 15
+          timeoutSeconds: 1
+        livenessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 30
+          timeoutSeconds: 1
+        {{- if .Values.loki.resources }}
+        resources:
+          {{- toYaml .Values.loki.resources | nindent 12 }}
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/loki
+        - name: storage
+          mountPath: /loki
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "iap.fullname" . }}-loki-config
+      - name: storage
+        persistentVolumeClaim:
+          claimName: {{ include "iap.fullname" . }}-loki-storage
+{{- end -}}

@@ -1,0 +1,56 @@
+{{- if .Values.promtail.enabled -}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "iap.fullname" . }}-promtail
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "promtail"
+  annotations:
+    kubernetes.io/description: "ServiceAccount for Promtail log collection."
+    {{- include "iap.annotations" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "iap.fullname" . }}-promtail
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "promtail"
+  annotations:
+    kubernetes.io/description: "ClusterRole for Promtail to read pod metadata."
+    {{- include "iap.annotations" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - watch
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "iap.fullname" . }}-promtail
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "promtail"
+  annotations:
+    kubernetes.io/description: "ClusterRoleBinding for Promtail ServiceAccount."
+    {{- include "iap.annotations" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "iap.fullname" . }}-promtail
+subjects:
+- kind: ServiceAccount
+  name: {{ include "iap.fullname" . }}-promtail
+  namespace: {{ .Release.Namespace }}
+{{- end -}}

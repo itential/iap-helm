@@ -270,6 +270,76 @@ processExporter:
   # -- Process exporter metrics port
   port: 9256
 
+# Loki configuration for log aggregation
+loki:
+  # -- Enable Loki for log collection
+  enabled: false
+  image:
+    # -- Loki image repository
+    repository: grafana/loki
+    # -- Loki image tag
+    tag: 2.9.0
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+  # -- Loki HTTP port
+  httpPort: 3100
+  # -- Loki GRPC port
+  grpcPort: 9095
+  # -- Storage configuration
+  storage:
+    # -- Storage class for Loki data persistence
+    storageClass: ""
+    # -- Storage size for Loki data
+    size: "10Gi"
+  # -- Resource limits and requests
+  resources:
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+  # -- Ingress configuration for external access
+  ingress:
+    # -- Enable Ingress for Loki
+    enabled: false
+    # -- Ingress class name
+    className: "alb"
+    # -- Hostname for Loki access
+    host: "loki.example.com"
+    # -- Additional annotations for the Ingress
+    annotations:
+      alb.ingress.kubernetes.io/scheme: "internet-facing"
+      alb.ingress.kubernetes.io/target-type: "ip"
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+      alb.ingress.kubernetes.io/healthcheck-path: "/ready"
+      alb.ingress.kubernetes.io/healthcheck-port: "3100"
+      alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
+      alb.ingress.kubernetes.io/success-codes: "200"
+      external-dns.alpha.kubernetes.io/ttl: "300"
+
+# Promtail configuration for log collection
+promtail:
+  # -- Enable Promtail for log shipping to Loki
+  enabled: false
+  image:
+    # -- Promtail image repository
+    repository: grafana/promtail
+    # -- Promtail image tag
+    tag: 2.9.0
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+  # -- Loki endpoint for Promtail to send logs to
+  lokiUrl: "http://loki:3100/loki/api/v1/push"
+  # -- Resource limits and requests
+  resources:
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+
 # Configuration properties for Itential Automation Platform.
 # In most cases, the default values are sufficient. If the property is commented that means that
 # the default value is being used. This is a list of all possible values for convenience. The
