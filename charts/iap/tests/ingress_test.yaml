@@ -238,7 +238,7 @@ tests:
           value: Prefix
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service
+          value: iap-service
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.port.number
           value: 443
@@ -405,13 +405,13 @@ tests:
     asserts:
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-1
+          value: iap-service-headless-1
       - equal:
           path: spec.rules[2].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-2
+          value: iap-service-headless-2
 
   - it: should use correct ports for direct access
     set:
@@ -495,7 +495,7 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
 
   - it: should handle large replica count for direct access
     set:
@@ -521,7 +521,7 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-4.example.com
       - equal:
           path: spec.rules[4].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-4
+          value: iap-service-headless-4
 
   - it: should handle zero replicas for direct access
     set:
@@ -566,26 +566,26 @@ tests:
           value: lb.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service
+          value: iap-service
       # Direct access rules
       - equal:
           path: spec.rules[1].host
           value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
       - equal:
           path: spec.rules[2].host
           value: RELEASE-NAME-iap-NAMESPACE-1.example.com
       - equal:
           path: spec.rules[2].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-1
+          value: iap-service-headless-1
       - equal:
           path: spec.rules[3].host
           value: RELEASE-NAME-iap-NAMESPACE-2.example.com
       - equal:
           path: spec.rules[3].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-2
+          value: iap-service-headless-2
 
   - it: should handle different paths for load balancer and direct access
     set:
@@ -681,7 +681,7 @@ tests:
           value: lb.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service
+          value: iap-service
 
   - it: should handle direct access only configuration
     set:
@@ -707,10 +707,10 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-1.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-1
+          value: iap-service-headless-1
 
 ### Edge cases
   - it: should handle string replica count
@@ -875,7 +875,7 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-9.example.com
       - equal:
           path: spec.rules[9].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-9
+          value: iap-service-headless-9
 
   - it: should handle unusual port numbers
     set:
