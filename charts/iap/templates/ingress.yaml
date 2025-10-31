@@ -35,7 +35,7 @@ spec:
       paths:
       - backend:
           service:
-            name: {{ include "iap.fullname" . }}-service
+            name: {{ .Values.service.name }}
             port:
               number: {{ .Values.service.port }}
         path: {{ .Values.ingress.loadBalancer.path | default "/" }}
@@ -43,7 +43,7 @@ spec:
       {{- if .Values.useWebSockets }}
       - backend:
           service:
-            name: {{ include "iap.fullname" . }}-service
+            name: {{ .Values.service.name }}
             port:
               number: {{ .Values.websocketPort }}
         path: "/ws"
