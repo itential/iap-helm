@@ -405,13 +405,13 @@ tests:
     asserts:
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-1
+          value: iap-service-headless-1
       - equal:
           path: spec.rules[2].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-2
+          value: iap-service-headless-2
 
   - it: should use correct ports for direct access
     set:
@@ -495,7 +495,7 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
 
   - it: should handle large replica count for direct access
     set:
@@ -521,7 +521,7 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-4.example.com
       - equal:
           path: spec.rules[4].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-4
+          value: iap-service-headless-4
 
   - it: should handle zero replicas for direct access
     set:
@@ -573,19 +573,19 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-0.example.com
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
       - equal:
           path: spec.rules[2].host
           value: RELEASE-NAME-iap-NAMESPACE-1.example.com
       - equal:
           path: spec.rules[2].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-1
+          value: iap-service-headless-1
       - equal:
           path: spec.rules[3].host
           value: RELEASE-NAME-iap-NAMESPACE-2.example.com
       - equal:
           path: spec.rules[3].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-2
+          value: iap-service-headless-2
 
   - it: should handle different paths for load balancer and direct access
     set:
@@ -707,10 +707,10 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-1.example.com
       - equal:
           path: spec.rules[0].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-0
+          value: iap-service-headless-0
       - equal:
           path: spec.rules[1].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-1
+          value: iap-service-headless-1
 
 ### Edge cases
   - it: should handle string replica count
@@ -875,7 +875,7 @@ tests:
           value: RELEASE-NAME-iap-NAMESPACE-9.example.com
       - equal:
           path: spec.rules[9].http.paths[0].backend.service.name
-          value: RELEASE-NAME-iap-service-headless-9
+          value: iap-service-headless-9
 
   - it: should handle unusual port numbers
     set:
@@ -932,3 +932,254 @@ tests:
       - equal:
           path: metadata.annotations["foo"]
           value: bar
+
+### hostOverride Tests
+  - it: should use hostOverride when provided
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: "custom-host"
+      service:
+        port: 443
+      replicaCount: 3
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 3
+      - equal:
+          path: spec.rules[0].host
+          value: custom-host-0.example.com
+      - equal:
+          path: spec.rules[1].host
+          value: custom-host-1.example.com
+      - equal:
+          path: spec.rules[2].host
+          value: custom-host-2.example.com
+
+  - it: should use default naming when hostOverride is empty
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: ""
+      service:
+        port: 443
+      replicaCount: 2
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 2
+      - equal:
+          path: spec.rules[0].host
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
+      - equal:
+          path: spec.rules[1].host
+          value: RELEASE-NAME-iap-NAMESPACE-1.example.com
+
+  - it: should use default naming when hostOverride is not set
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      service:
+        port: 443
+      replicaCount: 2
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 2
+      - equal:
+          path: spec.rules[0].host
+          value: RELEASE-NAME-iap-NAMESPACE-0.example.com
+      - equal:
+          path: spec.rules[1].host
+          value: RELEASE-NAME-iap-NAMESPACE-1.example.com
+
+  - it: should work with hostOverride and complex base domain
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: subdomain.example.com
+          hostOverride: "myapp"
+      service:
+        port: 443
+      replicaCount: 2
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: myapp-0.subdomain.example.com
+      - equal:
+          path: spec.rules[1].host
+          value: myapp-1.subdomain.example.com
+
+  - it: should work with hostOverride and single replica
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: "single"
+      service:
+        port: 443
+      replicaCount: 1
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 1
+      - equal:
+          path: spec.rules[0].host
+          value: single-0.example.com
+
+  - it: should work with hostOverride and high replica count
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: "scale"
+      service:
+        port: 443
+      replicaCount: 10
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 10
+      - equal:
+          path: spec.rules[0].host
+          value: scale-0.example.com
+      - equal:
+          path: spec.rules[9].host
+          value: scale-9.example.com
+
+  - it: should combine loadBalancer and hostOverride correctly
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: true
+          host: lb.example.com
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: "direct"
+      service:
+        port: 443
+      replicaCount: 2
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 3  # 1 load balancer + 2 direct access
+      # Load balancer rule (unchanged)
+      - equal:
+          path: spec.rules[0].host
+          value: lb.example.com
+      # Direct access rules (using hostOverride)
+      - equal:
+          path: spec.rules[1].host
+          value: direct-0.example.com
+      - equal:
+          path: spec.rules[2].host
+          value: direct-1.example.com
+
+  - it: should handle special characters in hostOverride
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: "iap-prod"
+      service:
+        port: 443
+      replicaCount: 2
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: iap-prod-0.example.com
+      - equal:
+          path: spec.rules[1].host
+          value: iap-prod-1.example.com
+
+  - it: should work with process exporter and hostOverride
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: "metrics"
+      processExporter:
+        enabled: true
+      service:
+        port: 443
+      replicaCount: 1
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 1
+      - equal:
+          path: spec.rules[0].host
+          value: metrics-0.example.com
+      # Should have both main path and metrics path
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 2
+      - equal:
+          path: spec.rules[0].http.paths[1].path
+          value: /metrics
+
+  - it: should preserve service references with hostOverride
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+          hostOverride: "service-test"
+      service:
+        port: 8080
+      replicaCount: 2
+    asserts:
+      # Service names should remain unchanged
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: iap-service-headless-0
+      - equal:
+          path: spec.rules[1].http.paths[0].backend.service.name
+          value: iap-service-headless-1
+      # Port should be correct
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080
+      - equal:
+          path: spec.rules[1].http.paths[0].backend.service.port.number
+          value: 8080
