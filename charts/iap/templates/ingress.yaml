@@ -53,7 +53,7 @@ spec:
   # Direct access
   {{- if .Values.ingress.directAccess.enabled }}
   {{- range $i := until (.Values.replicaCount | int) }}
-  - host: {{ printf "%s-%d.%s" (include "iap.DirectAccessHost" $) $i $.Values.ingress.directAccess.baseDomain | quote }}
+  - host: {{ include "iap.DirectAccessHost" (dict "Values" $.Values "Release" $.Release "Chart" $.Chart "Template" $.Template "iterator" $i) | quote }}
     http:
       paths:
       - backend:

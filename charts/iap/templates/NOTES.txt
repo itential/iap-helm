@@ -11,7 +11,7 @@ The application will be available at:
 
 You can access each individual pod at these addresses:
   {{- range $i := until (.Values.replicaCount | int) }}
-  {{ printf "%s://%s-%s-%d.%s" $protocol (include "iap.fullname" $) $.Release.Namespace $i $.Values.certificate.domain }}
+  {{ printf "%s://%s" $protocol (include "iap.DirectAccessHost" (dict "Values" $.Values "Release" $.Release "Chart" $.Chart "Template" $.Template "iterator" $i)) }}
   {{- end }}
 {{- end }}
 

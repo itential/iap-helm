@@ -76,9 +76,10 @@ helm.sh/template-file: "{{ $.Template.Name }}"
 Direct host names
 */}}
 {{- define "iap.DirectAccessHost" -}}
+{{- $iterator := .iterator -}}
 {{- if .Values.ingress.directAccess.hostOverride -}}
-{{- printf "%s" .Values.ingress.directAccess.hostOverride -}}
+{{- printf "%s-%d.%s" .Values.ingress.directAccess.hostOverride $iterator .Values.ingress.directAccess.baseDomain -}}
 {{- else -}}
-{{- printf "%s-%s" (include "iap.fullname" .) .Release.Namespace -}}
+{{- printf "%s-%s-%d.%s" (include "iap.fullname" .) .Release.Namespace $iterator .Values.ingress.directAccess.baseDomain -}}
 {{- end -}}
 {{- end }}
