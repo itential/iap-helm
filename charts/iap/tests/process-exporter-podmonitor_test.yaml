@@ -1,0 +1,170 @@
+suite: test process-exporter podmonitor
+templates:
+  - PodMonitor.yaml
+tests:
+  # Test PodMonitor creation with TLS enabled
+  - it: should create PodMonitor with HTTPS scheme and TLS config when useTLS is true
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PodMonitor
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-iap-process-exporter
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: podmonitor
+      - equal:
+          path: spec.podMetricsEndpoints[0].interval
+          value: 15s
+      - equal:
+          path: spec.podMetricsEndpoints[0].path
+          value: /metrics
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: process-metrics
+      - equal:
+          path: spec.podMetricsEndpoints[0].scheme
+          value: https
+      - equal:
+          path: spec.podMetricsEndpoints[0].tlsConfig.insecureSkipVerify
+          value: true
+
+  # Test PodMonitor creation with TLS disabled
+  - it: should create PodMonitor with HTTP scheme when useTLS is false
+    set:
+      processExporter.enabled: true
+      useTLS: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PodMonitor
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-iap-process-exporter
+      - equal:
+          path: spec.podMetricsEndpoints[0].interval
+          value: 15s
+      - equal:
+          path: spec.podMetricsEndpoints[0].path
+          value: /metrics
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: process-metrics
+      - notExists:
+          path: spec.podMetricsEndpoints[0].scheme
+      - notExists:
+          path: spec.podMetricsEndpoints[0].tlsConfig
+
+  # Test PodMonitor is not created when processExporter is disabled
+  - it: should not create PodMonitor when processExporter is disabled
+    set:
+      processExporter.enabled: false
+      useTLS: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # Test PodMonitor is not created when processExporter is not set
+  - it: should not create PodMonitor when processExporter is not set
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # Test PodMonitor relabelings configuration
+  - it: should configure correct relabelings
+    set:
+      processExporter.enabled: true
+      processExporter.port: 9256
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.podMetricsEndpoints[0].relabelings[0].action
+          value: keep
+      - equal:
+          path: spec.podMetricsEndpoints[0].relabelings[0].regex
+          value: '([\d\.]+):9256'
+      - contains:
+          path: spec.podMetricsEndpoints[0].relabelings[0].sourceLabels
+          content: __address__
+      - equal:
+          path: spec.podMetricsEndpoints[0].relabelings[1].action
+          value: labeldrop
+      - equal:
+          path: spec.podMetricsEndpoints[0].relabelings[1].regex
+          value: __meta_kubernetes_service_annotation_kubectl_kubernetes_io_last_applied_configuration
+
+  # Test PodMonitor with custom port
+  - it: should use custom port in relabelings when specified
+    set:
+      processExporter.enabled: true
+      processExporter.port: 9999
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.podMetricsEndpoints[0].relabelings[0].regex
+          value: '([\d\.]+):9999'
+
+  # Test PodMonitor job label
+  - it: should configure correct job label
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.jobLabel
+          value: app.kubernetes.io/name
+
+  # Test PodMonitor namespace selector
+  - it: should configure correct namespace selector
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - contains:
+          path: spec.namespaceSelector.matchNames
+          content: NAMESPACE
+
+  # Test PodMonitor selector
+  - it: should configure correct pod selector
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: iap
+
+  # Test labels are correctly applied
+  - it: should have correct labels
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: iap
+      - equal:
+          path: metadata.labels["helm.sh/chart"]
+          value: iap-1.5.0
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: Helm
+
+  # Test annotations are correctly applied
+  - it: should have correct annotations
+    set:
+      processExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Itential Automation Platform Pod Monitor."
