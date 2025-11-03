@@ -35,7 +35,7 @@ spec:
       paths:
       - backend:
           service:
-            name: {{ include "iap.fullname" . }}-service
+            name: {{ .Values.service.name }}
             port:
               number: {{ .Values.service.port }}
         path: {{ .Values.ingress.loadBalancer.path | default "/" }}
@@ -43,7 +43,7 @@ spec:
       {{- if .Values.useWebSockets }}
       - backend:
           service:
-            name: {{ include "iap.fullname" . }}-service
+            name: {{ .Values.service.name }}
             port:
               number: {{ .Values.websocketPort }}
         path: "/ws"
@@ -53,12 +53,12 @@ spec:
   # Direct access
   {{- if .Values.ingress.directAccess.enabled }}
   {{- range $i := until (.Values.replicaCount | int) }}
-  - host: {{ printf "%s-%s-%d.%s" (include "iap.name" $) $.Release.Namespace $i $.Values.ingress.directAccess.baseDomain | quote }}
+  - host: {{ printf "%s-%s-%d.%s" (include "iap.fullname" $) $.Release.Namespace $i $.Values.ingress.directAccess.baseDomain | quote }}
     http:
       paths:
       - backend:
           service:
-            name: {{ include "iap.fullname" $ }}-service-headless-{{ $i }}
+            name: {{ $.Values.service.name }}-headless-{{ $i }}
             port:
               number: {{ $.Values.service.port }}
         path: {{ $.Values.ingress.directAccess.path | default "/" }}
@@ -66,7 +66,7 @@ spec:
       {{- if and $.Values.processExporter $.Values.processExporter.enabled }}
       - backend:
           service:
-            name: {{ include "iap.fullname" $ }}-service-headless-{{ $i }}
+            name: {{ $.Values.service.name }}-headless-{{ $i }}
             port:
               name: process-metrics
         path: "/metrics"

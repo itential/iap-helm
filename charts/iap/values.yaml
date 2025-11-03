@@ -68,6 +68,8 @@ issuer:
 certificate:
   # -- Toggle to use the certificate object or not
   enabled: true
+  # -- The name of the secret where the TLS certificate will be stored
+  secretName: ""
   issuerRef:
     # -- The name of the issuer with the CA reference.
     name: iap-ca-issuer

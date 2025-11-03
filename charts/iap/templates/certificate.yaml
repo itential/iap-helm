@@ -14,7 +14,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  secretName: {{ include "iap.fullname" . }}-tls-secret
+  secretName: {{ .Values.certificate.secretName | default (printf "%s-tls-secret" (include "iap.fullname" .)) }}
   issuerRef:
     name: {{ .Values.certificate.issuerRef.name }}
     kind: {{ .Values.certificate.issuerRef.kind }}
@@ -28,7 +28,7 @@ spec:
     - {{ .Values.certificate.commonName | quote -}}
     {{/* This will add DNS names for each of the pods for direct access */}}
     {{- range $i := until (.Values.replicaCount | int) }}
-    - {{ printf "%s-%s-%d.%s" (include "iap.name" $) $.Release.Namespace $i $.Values.certificate.domain | quote }}
+    - {{ printf "%s-%s-%d.%s" (include "iap.fullname" $) $.Release.Namespace $i $.Values.certificate.domain | quote }}
     {{- end }}
   {{- if or .Values.certificate.ipAddresses .Values.certificate.includeServiceIPs }}
   ipAddresses:

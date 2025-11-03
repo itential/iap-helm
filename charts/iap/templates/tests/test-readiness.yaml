@@ -41,7 +41,7 @@ spec:
         # Check each replica
         for i in $(seq 0 $((replica_count - 1))); do
 
-          pod_url="${protocol}://{{ include "iap.name" . }}-{{ .Release.Namespace }}-${i}.{{ .Values.certificate.domain }}/health/status"
+          pod_url="${protocol}://{{ include "iap.fullname" . }}-${i}.{{ .Values.service.name }}-headless.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.applicationPort }}/health/status"
 
           echo "Testing pod ${i}: ${pod_url}"
 
