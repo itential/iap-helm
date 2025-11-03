@@ -175,7 +175,7 @@ tests:
           content:
             name: process-exporter
             configMap:
-              name: iap-process-exporter
+              name: RELEASE-NAME-iap-process-exporter
 
   # Test no process-exporter container when disabled
   - it: should not include process-exporter container when disabled
