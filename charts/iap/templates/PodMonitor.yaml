@@ -15,6 +15,11 @@ spec:
     - interval: 15s
       path: /metrics
       port: process-metrics
+      {{- if .Values.useTLS }}
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      {{- end }}
       relabelings:
         - action: keep
           regex: ([\d\.]+):{{ $.Values.processExporter.port | default 9256 }}
@@ -23,7 +28,7 @@ spec:
           regex: __meta_kubernetes_service_annotation_kubectl_kubernetes_io_last_applied_configuration
   jobLabel: app.kubernetes.io/name
   namespaceSelector:
-    matchNames: [ {{ .Release.namespace }} ]
+    matchNames: [ {{ .Release.Namespace | default "default" }} ]
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ include "iap.name" . }}
