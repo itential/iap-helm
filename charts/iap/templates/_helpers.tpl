@@ -71,3 +71,15 @@ itential.com/copyright: "Copyright (c) {{ now | date "2006" }}, Itential, Inc."
 itential.com/license: "GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)"
 helm.sh/template-file: "{{ $.Template.Name }}"
 {{- end -}}
+
+{{/*
+Direct host names
+*/}}
+{{- define "iap.DirectAccessHost" -}}
+{{- $iterator := .iterator -}}
+{{- if .Values.ingress.directAccess.hostOverride -}}
+{{- printf "%s-%d.%s" .Values.ingress.directAccess.hostOverride $iterator .Values.ingress.directAccess.baseDomain -}}
+{{- else -}}
+{{- printf "%s-%s-%d.%s" (include "iap.fullname" .) .Release.Namespace $iterator .Values.ingress.directAccess.baseDomain -}}
+{{- end -}}
+{{- end }}

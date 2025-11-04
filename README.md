@@ -163,6 +163,7 @@ understand.
 | ingress.className | string | `"alb"` | The ingress controller class name |
 | ingress.directAccess.baseDomain | string | `"pet-sbx.itential.io"` | The base domain for each Itential pod, used by the templates to create host names. |
 | ingress.directAccess.enabled | bool | `true` | Enable direct access to all Itential pods. |
+| ingress.directAccess.hostOverride | string | `""` | Optional host override for direct access ingress. When empty, uses iap.fullname + namespace + iterator. When set, uses hostOverride + iterator for hostname generation. |
 | ingress.directAccess.path | string | `"/"` | The path |
 | ingress.enabled | bool | `true` | The ingress object can be disabled and will not be created with this set to false |
 | ingress.loadBalancer.enabled | bool | `true` | Enable a load balancer that will distribute request to all Itential pods |

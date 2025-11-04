@@ -161,6 +161,12 @@ ingress:
     baseDomain: example.com
     # -- The path
     path: /
+    # -- An optional host override for the direct access ingress.
+    # -- By default, the direct access host names are a concatenation of
+    # --   iap.fullname + Namespace + iterator + ingress.directAccess.baseDomain
+    # -- If hostOverride is set, the direct access host names will be concatenated as
+    # --   hostOverride + iterator + ingress.directAccess.baseDomain
+    hostOverride: ""
   # -- The annotations for this ingress object. These are passed into the template as is and will
   # render as you see here. Itential leveraged AWS ALB but others should work.
   annotations:
