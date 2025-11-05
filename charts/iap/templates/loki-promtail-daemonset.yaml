@@ -1,0 +1,82 @@
+{{- if .Values.promtail.enabled -}}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "iap.fullname" . }}-promtail
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "promtail"
+  annotations:
+    kubernetes.io/description: "Promtail log collector for shipping logs to Loki."
+    {{- include "iap.annotations" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "iap.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: "promtail"
+  template:
+    metadata:
+      labels:
+        {{- include "iap.labels" . | nindent 8 }}
+        app.kubernetes.io/component: "promtail"
+    spec:
+      serviceAccountName: {{ include "iap.fullname" . }}-promtail
+      containers:
+      - name: promtail
+        image: "{{ .Values.promtail.image.repository }}:{{ .Values.promtail.image.tag }}"
+        imagePullPolicy: {{ .Values.promtail.image.pullPolicy }}
+        args:
+        - -config.file=/etc/promtail/config.yml
+        - -client.url={{ .Values.promtail.lokiUrl }}
+        env:
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        {{- if .Values.promtail.resources }}
+        resources:
+          {{- toYaml .Values.promtail.resources | nindent 12 }}
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - name: config
+          mountPath: /etc/promtail
+        - name: run
+          mountPath: /run/promtail
+        - mountPath: /var/lib/docker/containers
+          name: docker
+          readOnly: true
+        - mountPath: /var/log/pods
+          name: pods
+          readOnly: true
+        - mountPath: /var/log
+          name: varlog
+          readOnly: true
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "iap.fullname" . }}-promtail-config
+      - name: run
+        hostPath:
+          path: /run/promtail
+      - name: docker
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: pods
+        hostPath:
+          path: /var/log/pods
+      - name: varlog
+        hostPath:
+          path: /var/log
+{{- end -}}

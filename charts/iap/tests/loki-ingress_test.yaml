@@ -1,0 +1,373 @@
+suite: test loki ingress template
+templates:
+  - loki-ingress.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render Loki ingress when Loki is disabled
+    set:
+      loki:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render Loki ingress when ingress is disabled
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render Loki ingress when both Loki and ingress are enabled
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        ingress:
+          enabled: true
+          className: "alb"
+          host: "loki.example.com"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Ingress
+      - isAPIVersion:
+          of: networking.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-loki"
+
+  - it: should have correct labels in metadata
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "loki-ingress"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: "itential-platform"
+      - exists:
+          path: metadata.labels["app.kubernetes.io/version"]
+      - exists:
+          path: metadata.labels["helm.sh/chart"]
+
+  - it: should have correct annotations including template annotations
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Loki Ingress for external log access."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should configure default ingress class
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          className: "alb"
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: "alb"
+
+  - it: should configure custom ingress class
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          className: "nginx"
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: "nginx"
+
+  - it: should configure default host
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: "loki.example.com"
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: "/"
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: "Prefix"
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: "RELEASE-NAME-iap-loki"
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 3100
+
+  - it: should configure custom host
+    set:
+      loki:
+        enabled: true
+        httpPort: 8080
+        ingress:
+          enabled: true
+          host: "custom-loki.example.org"
+    asserts:
+      - equal:
+          path: spec.rules[0].host
+          value: "custom-loki.example.org"
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080
+
+  - it: should include default ALB annotations
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          className: "alb"
+          host: "loki.example.com"
+          annotations:
+            alb.ingress.kubernetes.io/scheme: "internet-facing"
+            alb.ingress.kubernetes.io/target-type: "ip"
+    asserts:
+      - equal:
+          path: metadata.annotations["alb.ingress.kubernetes.io/scheme"]
+          value: "internet-facing"
+      - equal:
+          path: metadata.annotations["alb.ingress.kubernetes.io/target-type"]
+          value: "ip"
+
+  - it: should include custom annotations
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          annotations:
+            custom.annotation/foo: "bar"
+            custom.annotation/baz: "qux"
+    asserts:
+      - equal:
+          path: metadata.annotations["custom.annotation/foo"]
+          value: "bar"
+      - equal:
+          path: metadata.annotations["custom.annotation/baz"]
+          value: "qux"
+
+  - it: should merge template and custom annotations
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          annotations:
+            alb.ingress.kubernetes.io/scheme: "internal"
+            custom.annotation: "value"
+    asserts:
+      - equal:
+          path: metadata.annotations["alb.ingress.kubernetes.io/scheme"]
+          value: "internal"
+      - equal:
+          path: metadata.annotations["custom.annotation"]
+          value: "value"
+      - exists:
+          path: metadata.annotations["kubernetes.io/description"]
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+
+  - it: should handle health check annotations
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        ingress:
+          enabled: true
+          annotations:
+            alb.ingress.kubernetes.io/healthcheck-path: "/ready"
+            alb.ingress.kubernetes.io/healthcheck-port: "3100"
+            alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
+            alb.ingress.kubernetes.io/success-codes: "200"
+    asserts:
+      - equal:
+          path: metadata.annotations["alb.ingress.kubernetes.io/healthcheck-path"]
+          value: "/ready"
+      - equal:
+          path: metadata.annotations["alb.ingress.kubernetes.io/healthcheck-port"]
+          value: "3100"
+      - equal:
+          path: metadata.annotations["alb.ingress.kubernetes.io/healthcheck-protocol"]
+          value: "HTTP"
+      - equal:
+          path: metadata.annotations["alb.ingress.kubernetes.io/success-codes"]
+          value: "200"
+
+  - it: should work with different release names
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+    release:
+      name: "custom-release"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-loki"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "custom-release"
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: "custom-release-iap-loki"
+
+  - it: should handle nameOverride
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+      nameOverride: "custom-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-custom-name-loki"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+
+  - it: should work with fullnameOverride
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+      fullnameOverride: "custom-loki-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-loki-name-loki"
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: "custom-loki-name-loki"
+
+  - it: should validate required ingress fields
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        ingress:
+          enabled: true
+          className: "alb"
+          host: "loki.example.com"
+    asserts:
+      - exists:
+          path: spec.ingressClassName
+      - exists:
+          path: spec.rules
+      - exists:
+          path: spec.rules[0].host
+      - exists:
+          path: spec.rules[0].http.paths
+      - exists:
+          path: spec.rules[0].http.paths[0].path
+      - exists:
+          path: spec.rules[0].http.paths[0].pathType
+      - exists:
+          path: spec.rules[0].http.paths[0].backend.service.name
+      - exists:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+
+  - it: should have only one rule
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 1
+
+  - it: should have only one path per rule
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+    asserts:
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 1
+
+  - it: should always use Prefix path type
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: "Prefix"
+
+  - it: should always use root path
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: "/"
+
+  - it: should handle external-dns annotations
+    set:
+      loki:
+        enabled: true
+        ingress:
+          enabled: true
+          host: "loki.example.com"
+          annotations:
+            external-dns.alpha.kubernetes.io/ttl: "300"
+    asserts:
+      - equal:
+          path: metadata.annotations["external-dns.alpha.kubernetes.io/ttl"]
+          value: "300"

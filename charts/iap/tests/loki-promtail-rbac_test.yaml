@@ -1,0 +1,372 @@
+suite: test promtail rbac template
+templates:
+  - loki-promtail-rbac.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render Promtail RBAC resources when disabled
+    set:
+      promtail:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render all RBAC resources when Promtail is enabled
+    set:
+      promtail:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 3
+
+  - it: should render ServiceAccount with correct metadata
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ServiceAccount
+      - isAPIVersion:
+          of: v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+
+  - it: should render ServiceAccount with correct annotations
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "ServiceAccount for Promtail log collection."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should render ClusterRole with correct metadata
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - isKind:
+          of: ClusterRole
+      - isAPIVersion:
+          of: rbac.authorization.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+
+  - it: should render ClusterRole with correct annotations
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "ClusterRole for Promtail to read pod metadata."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should configure ClusterRole with required permissions for pods
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+            verbs: ["get", "watch", "list"]
+
+  - it: should configure ClusterRole with required permissions for pods
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - contains:
+          path: rules[0].resources
+          content: "pods"
+      - contains:
+          path: rules[0].resources
+          content: "nodes"
+      - contains:
+          path: rules[0].verbs
+          content: "get"
+      - contains:
+          path: rules[0].verbs
+          content: "watch"
+      - contains:
+          path: rules[0].verbs
+          content: "list"
+
+  - it: should render ClusterRoleBinding with correct metadata
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 2
+    asserts:
+      - isKind:
+          of: ClusterRoleBinding
+      - isAPIVersion:
+          of: rbac.authorization.k8s.io/v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "promtail"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+
+  - it: should render ClusterRoleBinding with correct annotations
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 2
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "ClusterRoleBinding for Promtail ServiceAccount."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should configure ClusterRoleBinding with correct roleRef
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 2
+    asserts:
+      - equal:
+          path: roleRef.apiGroup
+          value: "rbac.authorization.k8s.io"
+      - equal:
+          path: roleRef.kind
+          value: "ClusterRole"
+      - equal:
+          path: roleRef.name
+          value: "RELEASE-NAME-iap-promtail"
+
+  - it: should configure ClusterRoleBinding with correct subject
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 2
+    asserts:
+      - lengthEqual:
+          path: subjects
+          count: 1
+      - equal:
+          path: subjects[0].kind
+          value: "ServiceAccount"
+      - equal:
+          path: subjects[0].name
+          value: "RELEASE-NAME-iap-promtail"
+      - equal:
+          path: subjects[0].namespace
+          value: "NAMESPACE"
+
+  - it: should work with different release names
+    set:
+      promtail:
+        enabled: true
+    release:
+      name: "custom-release"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-promtail"
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-promtail"
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-promtail"
+        documentIndex: 2
+      - equal:
+          path: roleRef.name
+          value: "custom-release-iap-promtail"
+        documentIndex: 2
+      - equal:
+          path: subjects[0].name
+          value: "custom-release-iap-promtail"
+        documentIndex: 2
+
+  - it: should work with different namespaces
+    set:
+      promtail:
+        enabled: true
+    release:
+      name: "test-release"
+      namespace: "custom-namespace"
+    asserts:
+      - equal:
+          path: subjects[0].namespace
+          value: "custom-namespace"
+        documentIndex: 2
+
+  - it: should handle nameOverride
+    set:
+      promtail:
+        enabled: true
+      nameOverride: "custom-name"
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+        documentIndex: 0
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+        documentIndex: 1
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+        documentIndex: 2
+
+  - it: should work with fullnameOverride
+    set:
+      promtail:
+        enabled: true
+      fullnameOverride: "custom-promtail-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-promtail-name-promtail"
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: "custom-promtail-name-promtail"
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: "custom-promtail-name-promtail"
+        documentIndex: 2
+
+  - it: should validate ClusterRole has all required verbs
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - contains:
+          path: rules[0].verbs
+          content: "get"
+      - contains:
+          path: rules[0].verbs
+          content: "watch"
+      - contains:
+          path: rules[0].verbs
+          content: "list"
+
+  - it: should validate ClusterRole has all required resources
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - contains:
+          path: rules[0].resources
+          content: "nodes"
+      - contains:
+          path: rules[0].resources
+          content: "nodes/proxy"
+      - contains:
+          path: rules[0].resources
+          content: "services"
+      - contains:
+          path: rules[0].resources
+          content: "endpoints"
+      - contains:
+          path: rules[0].resources
+          content: "pods"
+
+  - it: should have minimal required permissions only
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - lengthEqual:
+          path: rules
+          count: 1
+      - notContains:
+          path: rules[0].verbs
+          content: "create"
+      - notContains:
+          path: rules[0].verbs
+          content: "update"
+      - notContains:
+          path: rules[0].verbs
+          content: "patch"
+      - notContains:
+          path: rules[0].verbs
+          content: "delete"
+
+  - it: should have correct API groups
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: rules[0].apiGroups[0]
+          value: ""
+
+  - it: should validate ServiceAccount has no additional configuration
+    set:
+      promtail:
+        enabled: true
+    documentIndex: 0
+    asserts:
+      - notExists:
+          path: spec
+      - notExists:
+          path: automountServiceAccountToken
+      - notExists:
+          path: secrets
+      - notExists:
+          path: imagePullSecrets

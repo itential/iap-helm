@@ -1,0 +1,29 @@
+{{- if and .Values.loki.enabled .Values.loki.ingress.enabled -}}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "iap.fullname" . }}-loki
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "loki-ingress"
+  annotations:
+    kubernetes.io/description: "Loki Ingress for external log access."
+    {{- include "iap.annotations" . | nindent 4 }}
+    {{- with .Values.loki.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.loki.ingress.className | default "alb" }}
+  rules:
+  - host: {{ .Values.loki.ingress.host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ include "iap.fullname" . }}-loki
+            port:
+              number: {{ .Values.loki.httpPort }}
+{{- end -}}

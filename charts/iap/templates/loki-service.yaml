@@ -1,0 +1,27 @@
+{{- if .Values.loki.enabled -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "iap.fullname" . }}-loki
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "loki"
+  annotations:
+    kubernetes.io/description: "Loki service for log aggregation."
+    {{- include "iap.annotations" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: {{ .Values.loki.httpPort }}
+    protocol: TCP
+    targetPort: http
+  - name: grpc
+    port: {{ .Values.loki.grpcPort }}
+    protocol: TCP
+    targetPort: grpc
+  selector:
+    {{- include "iap.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: "loki"
+{{- end -}}

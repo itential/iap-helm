@@ -1,0 +1,338 @@
+suite: test loki configmap template
+templates:
+  - loki-configmap.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render Loki configmap when disabled
+    set:
+      loki:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render Loki configmap when enabled
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        grpcPort: 9095
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - isAPIVersion:
+          of: v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-loki-config"
+
+  - it: should have correct labels in metadata
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "loki"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: "itential-platform"
+      - exists:
+          path: metadata.labels["app.kubernetes.io/version"]
+      - exists:
+          path: metadata.labels["helm.sh/chart"]
+
+  - it: should have correct annotations
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Loki configuration for log aggregation."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should have local-config.yaml in data
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - exists:
+          path: data
+      - exists:
+          path: data["local-config.yaml"]
+
+  - it: should configure default ports in config
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        grpcPort: 9095
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "http_listen_port: 3100"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "grpc_listen_port: 9095"
+
+  - it: should configure custom ports in config
+    set:
+      loki:
+        enabled: true
+        httpPort: 8080
+        grpcPort: 8081
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "http_listen_port: 8080"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "grpc_listen_port: 8081"
+
+  - it: should have auth_enabled disabled by default
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "auth_enabled: false"
+
+  - it: should have correct server configuration
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        grpcPort: 9095
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "server:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "http_listen_port: 3100"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "grpc_listen_port: 9095"
+
+  - it: should have common configuration section
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "common:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "path_prefix: /loki"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "replication_factor: 1"
+
+  - it: should have storage configuration
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "storage:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "filesystem:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "chunks_directory: /loki/chunks"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "rules_directory: /loki/rules"
+
+  - it: should have ring configuration
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "ring:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "instance_addr: 127.0.0.1"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "kvstore:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "store: inmemory"
+
+  - it: should have query_range configuration
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "query_range:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "results_cache:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "embedded_cache:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "enabled: true"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "max_size_mb: 100"
+
+  - it: should have schema_config section
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "schema_config:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "configs:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "from: 2020-10-24"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "store: boltdb-shipper"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "object_store: filesystem"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "schema: v11"
+
+  - it: should have index configuration
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "index:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "prefix: index_"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "period: 24h"
+
+  - it: should have ruler configuration
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "ruler:"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "alertmanager_url: http://localhost:9093"
+
+  - it: should work with different release names
+    set:
+      loki:
+        enabled: true
+    release:
+      name: "custom-release"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-loki-config"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "custom-release"
+
+  - it: should handle nameOverride
+    set:
+      loki:
+        enabled: true
+      nameOverride: "custom-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-custom-name-loki-config"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+
+  - it: should work with fullnameOverride
+    set:
+      loki:
+        enabled: true
+      fullnameOverride: "custom-loki-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-loki-name-loki-config"
+
+  - it: should have valid YAML structure in config
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        grpcPort: 9095
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "^auth_enabled: false"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "server:\n.*http_listen_port: 3100"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "common:\n.*path_prefix: /loki"
+
+  - it: should not contain sensitive information
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - notMatchRegex:
+          path: data["local-config.yaml"]
+          pattern: "password"
+      - notMatchRegex:
+          path: data["local-config.yaml"]
+          pattern: "secret"
+      - notMatchRegex:
+          path: data["local-config.yaml"]
+          pattern: "token"
+
+  - it: should have proper indentation in YAML config
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "server:\n  http_listen_port"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "common:\n  path_prefix"
+      - matchRegex:
+          path: data["local-config.yaml"]
+          pattern: "schema_config:\n  configs:"

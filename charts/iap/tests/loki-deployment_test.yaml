@@ -1,0 +1,374 @@
+suite: test loki deployment template
+templates:
+  - loki-deployment.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render Loki deployment when disabled
+    set:
+      loki:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render Loki deployment when enabled with defaults
+    set:
+      loki:
+        enabled: true
+        image:
+          repository: grafana/loki
+          tag: 2.9.0
+          pullPolicy: IfNotPresent
+        httpPort: 3100
+        grpcPort: 9095
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Deployment
+      - isAPIVersion:
+          of: apps/v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-loki"
+
+  - it: should have correct labels in metadata
+    set:
+      loki:
+        enabled: true
+        image:
+          repository: grafana/loki
+          tag: 2.9.0
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "loki"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: "itential-platform"
+      - exists:
+          path: metadata.labels["app.kubernetes.io/version"]
+      - exists:
+          path: metadata.labels["helm.sh/chart"]
+
+  - it: should have correct annotations
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Loki log aggregation server for IAP logs."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should have correct selector labels
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - isSubset:
+          path: spec.selector.matchLabels
+          content:
+            app.kubernetes.io/name: "iap"
+            app.kubernetes.io/instance: "RELEASE-NAME"
+            app.kubernetes.io/component: "loki"
+
+  - it: should have correct pod template labels
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - isSubset:
+          path: spec.template.metadata.labels
+          content:
+            app.kubernetes.io/name: "iap"
+            app.kubernetes.io/instance: "RELEASE-NAME"
+            app.kubernetes.io/component: "loki"
+
+  - it: should configure container with default image settings
+    set:
+      loki:
+        enabled: true
+        image:
+          repository: grafana/loki
+          tag: 2.9.0
+          pullPolicy: IfNotPresent
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].name
+          value: "loki"
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "grafana/loki:2.9.0"
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "IfNotPresent"
+
+  - it: should configure container with custom image settings
+    set:
+      loki:
+        enabled: true
+        image:
+          repository: custom/loki
+          tag: latest
+          pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "custom/loki:latest"
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: "Always"
+
+  - it: should configure correct ports
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+        grpcPort: 9095
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: http
+            containerPort: 3100
+            protocol: TCP
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: grpc
+            containerPort: 9095
+            protocol: TCP
+
+  - it: should configure custom ports
+    set:
+      loki:
+        enabled: true
+        httpPort: 8080
+        grpcPort: 8081
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: http
+            containerPort: 8080
+            protocol: TCP
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: grpc
+            containerPort: 8081
+            protocol: TCP
+
+  - it: should have correct config volume mount
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: config
+            mountPath: /etc/loki
+
+  - it: should have correct storage volume mount
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: storage
+            mountPath: /loki
+
+  - it: should have correct volumes
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: config
+            configMap:
+              name: "RELEASE-NAME-iap-loki-config"
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: storage
+            persistentVolumeClaim:
+              claimName: "RELEASE-NAME-iap-loki-storage"
+
+  - it: should configure default resource limits
+    set:
+      loki:
+        enabled: true
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: "512Mi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: "500m"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: "256Mi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: "100m"
+
+  - it: should configure custom resource limits
+    set:
+      loki:
+        enabled: true
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: "2Gi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: "1000m"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: "1Gi"
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: "500m"
+
+  - it: should have readiness probe
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: "/ready"
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.port
+          value: "http"
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.initialDelaySeconds
+          value: 15
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.timeoutSeconds
+          value: 1
+
+  - it: should have liveness probe
+    set:
+      loki:
+        enabled: true
+        httpPort: 3100
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: "/ready"
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.port
+          value: "http"
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 30
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.timeoutSeconds
+          value: 1
+
+  - it: should have single replica
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should have container security context
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsUser
+          value: 10001
+
+  - it: should work with different release names
+    set:
+      loki:
+        enabled: true
+    release:
+      name: "custom-release"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-loki"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "custom-release"
+
+  - it: should handle nameOverride
+    set:
+      loki:
+        enabled: true
+      nameOverride: "custom-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-custom-name-loki"
+      - isSubset:
+          path: spec.selector.matchLabels
+          content:
+            app.kubernetes.io/name: "custom-name"
+
+  - it: should validate required command args
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: "-config.file=/etc/loki/local-config.yaml"
+
+  - it: should have security context
+    set:
+      loki:
+        enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 10001
+      - equal:
+          path: spec.template.spec.securityContext.runAsGroup
+          value: 10001
+      - equal:
+          path: spec.template.spec.securityContext.fsGroup
+          value: 10001

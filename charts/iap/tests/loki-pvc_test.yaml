@@ -1,0 +1,298 @@
+suite: test loki pvc template
+templates:
+  - loki-pvc.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render Loki PVC when Loki is disabled
+    set:
+      loki:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render Loki PVC when enabled with defaults
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PersistentVolumeClaim
+      - isAPIVersion:
+          of: v1
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-iap-loki-storage"
+
+  - it: should have correct labels in metadata
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "loki"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "RELEASE-NAME"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "iap"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/part-of"]
+          value: "itential-platform"
+      - exists:
+          path: metadata.labels["app.kubernetes.io/version"]
+      - exists:
+          path: metadata.labels["helm.sh/chart"]
+
+  - it: should have correct annotations
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "Persistent storage for Loki data."
+      - exists:
+          path: metadata.annotations["itential.com/copyright"]
+      - exists:
+          path: metadata.annotations["itential.com/license"]
+      - exists:
+          path: metadata.annotations["helm.sh/template-file"]
+
+  - it: should configure default storage class
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: "gp3"
+
+  - it: should configure custom storage class
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "custom-ssd"
+          size: "10Gi"
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: "custom-ssd"
+
+  - it: should configure default storage size
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: "10Gi"
+
+  - it: should configure custom storage size
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "50Gi"
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: "50Gi"
+
+  - it: should have ReadWriteOnce access mode
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - contains:
+          path: spec.accessModes
+          content: "ReadWriteOnce"
+
+  - it: should have only one access mode
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - lengthEqual:
+          path: spec.accessModes
+          count: 1
+
+  - it: should work with different release names
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    release:
+      name: "custom-release"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-release-iap-loki-storage"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: "custom-release"
+
+  - it: should handle nameOverride
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+      nameOverride: "custom-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "RELEASE-NAME-custom-name-loki-storage"
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: "custom-name"
+
+  - it: should work with fullnameOverride
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+      fullnameOverride: "custom-loki-name"
+    asserts:
+      - equal:
+          path: metadata.name
+          value: "custom-loki-name-loki-storage"
+
+  - it: should handle large storage sizes
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "1Ti"
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: "1Ti"
+
+  - it: should handle small storage sizes
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "1Gi"
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: "1Gi"
+
+  - it: should work without explicit storage class
+    set:
+      loki:
+        enabled: true
+        storage:
+          size: "10Gi"
+    asserts:
+      - notExists:
+          path: spec.storageClassName
+
+  - it: should validate required PVC fields
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - exists:
+          path: spec.accessModes
+      - exists:
+          path: spec.resources.requests.storage
+      - exists:
+          path: metadata.name
+      - exists:
+          path: metadata.labels
+
+  - it: should handle various storage classes
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "fast-ssd"
+          size: "20Gi"
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: "fast-ssd"
+      - equal:
+          path: spec.resources.requests.storage
+          value: "20Gi"
+
+  - it: should handle EBS storage classes
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "ebs-gp3"
+          size: "100Gi"
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: "ebs-gp3"
+      - equal:
+          path: spec.resources.requests.storage
+          value: "100Gi"
+
+  - it: should have consistent naming with other Loki components
+    set:
+      loki:
+        enabled: true
+        storage:
+          storageClass: "gp3"
+          size: "10Gi"
+    asserts:
+      - matchRegex:
+          path: metadata.name
+          pattern: ".*-loki-storage$"
+
+  - it: should work with minimal configuration
+    set:
+      loki:
+        enabled: true
+        storage:
+          size: "5Gi"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.resources.requests.storage
+          value: "5Gi"
