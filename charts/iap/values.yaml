@@ -20,6 +20,41 @@ mountAdapterVolume: false
 # Stdout.
 mountLogVolume: false
 
+# Init container for installing adapters
+initAdapterInstaller:
+  # -- Enable the init container that installs adapters to the persistent volume.
+  # -- Note: This only works when mountAdapterVolume is true, as the initContainer 
+  # -- needs a persistent volume to install adapters into.
+  enabled: false
+  image:
+    # -- The repository for the adapter installer init container image
+    repository: node
+    # -- The tag for the adapter installer init container image
+    tag: "18-bullseye"
+    # -- The image pull policy for the adapter installer init container
+    pullPolicy: IfNotPresent
+  # -- Security context for the init container
+  securityContext:
+    runAsUser: 1001
+    runAsGroup: 1001
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+  # -- List of adapter repositories to install
+  # Each repository can be:
+  # 1. A simple string URL (clones default branch)
+  # 2. An object with 'url' and optional 'branch' fields
+  repositories:
+    # Examples (supports GitLab, GitHub, Bitbucket, and other Git providers):
+    # - "https://gitlab.com/itentialopensource/adapters/adapter-example.git"  # Uses default branch
+    # - url: "https://github.com/company/adapter-custom.git"
+    #   branch: "v1.2.3"  # Clones specific branch/tag
+  # -- List of npm install options to use when installing adapter dependencies
+  npmInstallOptions:
+    - "--silent"
+    - "--no-audit"
+    - "--no-fund"
+  
+
 tests:
   enabled: true
   readinessTimeout: 300

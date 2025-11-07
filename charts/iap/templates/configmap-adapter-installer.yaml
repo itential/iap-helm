@@ -1,0 +1,250 @@
+{{- if and .Values.initAdapterInstaller.enabled .Values.mountAdapterVolume -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "iap.fullname" . }}-adapter-installer
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "adapter-installer"
+  annotations:
+    kubernetes.io/description: "ConfigMap containing the adapter installer script for IAP initContainer."
+    {{- include "iap.annotations" . | nindent 4 }}
+data:
+  install-adapters.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Only run adapter installation on the first replica (pod-0)
+    if [[ "$HOSTNAME" != *"-0" ]]; then
+        echo "Skipping adapter installation on replica $HOSTNAME (only runs on pod-0)"
+        echo "Non-pod-0 replica - exiting init container"
+        exit 0
+    fi
+    
+    echo "Running adapter installation on pod-0..."
+    cd /opt/itential/platform/services/custom
+    
+    # Build list of expected adapters from repositories
+    EXPECTED_ADAPTERS=()
+    for i in "${!REPOS[@]}"; do
+        REPO_URL="${REPOS[$i]}"
+        ADAPTER_NAME=$(basename "$REPO_URL" .git)
+        EXPECTED_ADAPTERS+=("$ADAPTER_NAME")
+    done
+    
+    # Remove any existing adapter directories not in the repositories list
+    echo "Cleaning up obsolete adapters..."
+    REMOVED_ADAPTERS=()
+    for EXISTING_DIR in adapter-*; do
+        if [ -d "$EXISTING_DIR" ]; then
+            ADAPTER_FOUND=false
+            for EXPECTED_ADAPTER in "${EXPECTED_ADAPTERS[@]}"; do
+                if [ "$EXISTING_DIR" = "$EXPECTED_ADAPTER" ]; then
+                    ADAPTER_FOUND=true
+                    break
+                fi
+            done
+            
+            if [ "$ADAPTER_FOUND" = "false" ]; then
+                echo "Removing obsolete adapter: $EXISTING_DIR"
+                rm -rf "$EXISTING_DIR"
+                REMOVED_ADAPTERS+=("$EXISTING_DIR")
+            else
+                echo "Keeping existing adapter: $EXISTING_DIR"
+            fi
+        fi
+    done
+    
+    if [ ${#REMOVED_ADAPTERS[@]} -gt 0 ]; then
+        echo "Removed ${#REMOVED_ADAPTERS[@]} obsolete adapters: ${REMOVED_ADAPTERS[*]}"
+    else
+        echo "No obsolete adapters found to remove"
+    fi
+    echo ""
+    
+    # Initialize arrays for tracking results
+    SUCCESSFUL_INSTALLS=()
+    FAILED_INSTALLS=()
+    
+    TOTAL_COUNT=${#REPOS[@]}
+    
+    for i in "${!REPOS[@]}"; do
+        REPO_URL="${REPOS[$i]}"
+        BRANCH="${BRANCHES[$i]}"
+        ADAPTER_NAME=$(basename "$REPO_URL" .git)
+        
+        echo "========================================="
+        echo "Processing adapter: $ADAPTER_NAME"
+        echo "Repository URL: $REPO_URL"
+        if [ -n "$BRANCH" ]; then
+            echo "Branch/Tag: $BRANCH"
+        else
+            echo "Branch/Tag: default"
+        fi
+        echo "========================================="
+        
+        # Check if adapter already exists and is on the correct branch
+        NEEDS_INSTALL=true
+        if [ -d "$ADAPTER_NAME" ]; then
+            cd "$ADAPTER_NAME"
+            
+            # Check if it's a git repository
+            if [ -d ".git" ]; then
+                if [ -n "$BRANCH" ]; then
+                    # Get the current commit hash
+                    CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null)
+                    
+                    # Check if the requested branch/tag exists remotely
+                    REQUESTED_COMMIT=$(git ls-remote origin "refs/tags/$BRANCH" 2>/dev/null | cut -f1)
+                    
+                    if [ -z "$REQUESTED_COMMIT" ]; then
+                        # Not a tag, check if it's a branch
+                        REQUESTED_COMMIT=$(git ls-remote origin "refs/heads/$BRANCH" 2>/dev/null | cut -f1)
+                    fi
+                    
+                    if [ -n "$REQUESTED_COMMIT" ] && [ "$CURRENT_COMMIT" = "$REQUESTED_COMMIT" ]; then
+                        echo "Adapter $ADAPTER_NAME already on correct branch/tag: $BRANCH (commit: ${CURRENT_COMMIT:0:8})"
+                        NEEDS_INSTALL=false
+                    else
+                        CURRENT_SHORT=${CURRENT_COMMIT:0:8}
+                        REQUESTED_SHORT=${REQUESTED_COMMIT:0:8}
+                        echo "Adapter $ADAPTER_NAME needs update - current: ${CURRENT_SHORT:-'unknown'}, requested: ${REQUESTED_SHORT:-'unknown'}"
+                    fi
+                else
+                    # No specific branch requested, check if we're on default branch
+                    CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null)
+                    DEFAULT_BRANCH=$(git ls-remote --symref origin HEAD | grep "^ref:" | cut -d/ -f3)
+                    DEFAULT_COMMIT=$(git ls-remote origin "refs/heads/$DEFAULT_BRANCH" 2>/dev/null | cut -f1)
+                    
+                    if [ -n "$DEFAULT_COMMIT" ] && [ "$CURRENT_COMMIT" = "$DEFAULT_COMMIT" ]; then
+                        echo "Adapter $ADAPTER_NAME already on default branch: $DEFAULT_BRANCH (commit: ${CURRENT_COMMIT:0:8})"
+                        NEEDS_INSTALL=false
+                    else
+                        CURRENT_SHORT=${CURRENT_COMMIT:0:8}
+                        DEFAULT_SHORT=${DEFAULT_COMMIT:0:8}
+                        echo "Adapter $ADAPTER_NAME needs update - current: ${CURRENT_SHORT:-'unknown'}, default: ${DEFAULT_SHORT:-'unknown'}"
+                    fi
+                fi
+                
+                # Check if node_modules exists and has content
+                if [ "$NEEDS_INSTALL" = "false" ]; then
+                    if [ ! -d "node_modules" ] || [ "$(ls -A node_modules 2>/dev/null | wc -l)" -eq 0 ]; then
+                        echo "Dependencies missing, will reinstall"
+                        NEEDS_INSTALL=true
+                    fi
+                fi
+            else
+                echo "Directory exists but not a git repository, will reinstall"
+            fi
+            
+            cd /opt/itential/platform/services/custom
+        fi
+        
+        if [ "$NEEDS_INSTALL" = "false" ]; then
+            echo "Skipping $ADAPTER_NAME installation (already up to date)"
+            SUCCESSFUL_INSTALLS+=("$ADAPTER_NAME (already installed)")
+        else
+            # Remove existing directory if it exists
+            if [ -d "$ADAPTER_NAME" ]; then
+                echo "Removing existing $ADAPTER_NAME directory..."
+                rm -rf "$ADAPTER_NAME"
+            fi
+        
+            # Clone the adapter repository with branch if specified
+            echo "Cloning $ADAPTER_NAME repository..."
+            if [ -n "$BRANCH" ]; then
+                echo "Using branch/tag: $BRANCH"
+                CLONE_CMD="git clone --branch $BRANCH $REPO_URL"
+            else
+                CLONE_CMD="git clone $REPO_URL"
+            fi
+            
+            if eval "$CLONE_CMD"; then
+                echo "Repository $ADAPTER_NAME cloned successfully"
+                
+                if [ -d "$ADAPTER_NAME" ]; then
+                    cd "$ADAPTER_NAME"
+                    echo "Running npm install for $ADAPTER_NAME..."
+                    
+                    # Set npm cache to a writable directory and run npm install
+                    export NPM_CONFIG_CACHE=/tmp/.npm
+                    mkdir -p /tmp/.npm
+                    
+                    # Run npm install and capture exit code (ignore stderr for warnings)
+                    npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund")) }} {{ . }}{{- end }} 2>/dev/null
+                    NPM_EXIT_CODE=$?
+                    
+                    # Check if packages were actually installed regardless of exit code
+                    if [ -d "node_modules" ] && [ "$(ls -A node_modules 2>/dev/null | wc -l)" -gt 0 ]; then
+                        echo "NPM install completed successfully for $ADAPTER_NAME"
+                        SUCCESSFUL_INSTALLS+=("$ADAPTER_NAME")
+                    else
+                        echo "NPM install failed for $ADAPTER_NAME"
+                        FAILED_INSTALLS+=("$ADAPTER_NAME (npm install failed)")
+                    fi
+                    
+                    cd /opt/itential/platform/services/custom
+                else
+                    echo "Directory $ADAPTER_NAME not found after clone"
+                    FAILED_INSTALLS+=("$ADAPTER_NAME (directory not found)")
+                fi
+            else
+                echo "Failed to clone repository for $ADAPTER_NAME"
+                FAILED_INSTALLS+=("$ADAPTER_NAME (clone failed)")
+            fi
+        fi
+        
+        echo ""
+    done
+    
+    # Set permissions for the entire custom directory
+    echo "Setting final permissions for /opt/itential/platform/services/custom..."
+    chmod -R 775 /opt/itential/platform/services/custom 2>/dev/null || echo "chmod: some permission operations not permitted"
+    chown -R itential:users /opt/itential/platform/services/custom 2>/dev/null || echo "chown: some ownership operations not permitted"
+    echo "Final permissions set to 775 recursively"
+    echo ""
+    
+    # Generate final report
+    SUCCESSFUL_COUNT=${#SUCCESSFUL_INSTALLS[@]}
+    FAILED_COUNT=${#FAILED_INSTALLS[@]}
+    REMOVED_COUNT=${#REMOVED_ADAPTERS[@]}
+    
+    echo "========================================="
+    echo "ADAPTER INSTALLATION REPORT"
+    echo "========================================="
+    echo "Total adapters processed: $TOTAL_COUNT"
+    echo "Successful installations: $SUCCESSFUL_COUNT"
+    echo "Failed installations: $FAILED_COUNT"
+    echo "Obsolete adapters removed: $REMOVED_COUNT"
+    echo ""
+    
+    if [ $SUCCESSFUL_COUNT -gt 0 ]; then
+        echo "Successfully installed adapters:"
+        for ADAPTER in "${SUCCESSFUL_INSTALLS[@]}"; do
+            echo "  - $ADAPTER"
+        done
+        echo ""
+    fi
+    
+    if [ $FAILED_COUNT -gt 0 ]; then
+        echo "Failed installations:"
+        for ADAPTER in "${FAILED_INSTALLS[@]}"; do
+            echo "  - $ADAPTER"
+        done
+        echo ""
+    fi
+    
+    if [ $REMOVED_COUNT -gt 0 ]; then
+        echo "Removed obsolete adapters:"
+        for ADAPTER in "${REMOVED_ADAPTERS[@]}"; do
+            echo "  - $ADAPTER"
+        done
+        echo ""
+    fi
+    
+    echo "Final directory contents:"
+    ls -la /opt/itential/platform/services/custom
+    echo "========================================="
+    echo "Adapter installation process completed"
+    echo "========================================"
+{{- end }}
