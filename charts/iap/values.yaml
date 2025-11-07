@@ -39,6 +39,11 @@ initAdapterInstaller:
     runAsGroup: 1001
     runAsNonRoot: true
     allowPrivilegeEscalation: false
+  # -- List of npm install options to use when installing adapter dependencies
+  npmInstallOptions:
+    - "--silent"
+    - "--no-audit"
+    - "--no-fund"
   # -- List of adapter repositories to install
   # Each repository can be:
   # 1. A simple string URL (clones default branch)
@@ -48,11 +53,6 @@ initAdapterInstaller:
     # - "https://gitlab.com/itentialopensource/adapters/adapter-example.git"  # Uses default branch
     # - url: "https://github.com/company/adapter-custom.git"
     #   branch: "v1.2.3"  # Clones specific branch/tag
-  # -- List of npm install options to use when installing adapter dependencies
-  npmInstallOptions:
-    - "--silent"
-    - "--no-audit"
-    - "--no-fund"
   
 
 tests:
