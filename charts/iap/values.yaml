@@ -95,6 +95,16 @@ certificate:
   # -- Specifies any subject fields required
   subject: {} # include all required properties, passed to the template as is
 
+# -- Additional TLS secrets to mount as optional volumes.
+# These secrets are NOT created or managed by this chart - they must exist in the namespace.
+# Each entry should be a string containing the secret name.
+# The secrets will be mounted at /etc/ssl/<secret-name>/
+additionalTlsSecrets: []
+  # Examples:
+  # - "client-cert-secret"        # Mounted at /etc/ssl/client-cert-secret/
+  # - "ca-bundle-secret"          # Mounted at /etc/ssl/ca-bundle-secret/
+  # - "custom-tls-secret"         # Mounted at /etc/ssl/custom-tls-secret/
+
 # Used to configure the storage class object which governs how the mounted volumes are created.
 storageClass:
   # -- Toggle the use of storageClass

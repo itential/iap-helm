@@ -147,6 +147,12 @@ spec:
           - name: "{{ include "iap.fullname" . }}-assets-volume"
             mountPath: "/opt/itential/platform/services/custom"
           {{- end }}
+          {{- range .Values.additionalTlsSecrets }}
+          # Mount additional TLS secret: {{ . }}
+          - name: "additional-tls-{{ . }}"
+            mountPath: "/etc/ssl/{{ . }}"
+            readOnly: true
+          {{- end }}
         {{- with .Values.volumeMounts }}
         {{- toYaml . | nindent 10 }}
         {{- end }}
@@ -180,6 +186,11 @@ spec:
             mountPath: /etc/ssl/platform
             readOnly: true
           {{- end }}
+          {{- range .Values.additionalTlsSecrets }}
+          - name: "additional-tls-{{ . }}"
+            mountPath: "/etc/ssl/{{ . }}"
+            readOnly: true
+          {{- end }}
       shareProcessNamespace: true
       {{- end }}
       volumes:
@@ -192,6 +203,12 @@ spec:
         - name: process-exporter
           configMap:
             name: {{ include "iap.fullname" . }}-process-exporter
+        {{- end }}
+        {{- range .Values.additionalTlsSecrets }}
+        - name: "additional-tls-{{ . }}"
+          secret:
+            secretName: "{{ . }}"
+            optional: true
         {{- end }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}

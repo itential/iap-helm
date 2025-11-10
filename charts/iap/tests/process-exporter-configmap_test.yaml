@@ -90,7 +90,7 @@ tests:
           value: iap
       - equal:
           path: metadata.labels["helm.sh/chart"]
-          value: iap-1.5.0
+          value: iap-1.6.0
       - equal:
           path: metadata.labels["app.kubernetes.io/instance"]
           value: RELEASE-NAME
