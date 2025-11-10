@@ -745,3 +745,291 @@ tests:
       - equal:
           path: spec.template.metadata.annotations["foo"]
           value: bar
+
+  # InitContainer Adapter Installer Tests
+  - it: should not include initContainer when initAdapterInstaller is disabled
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: false
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
+  - it: should not include initContainer when mountAdapterVolume is false
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: false
+      initAdapterInstaller:
+        enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers
+
+  - it: should include initContainer when both conditions are met
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        image:
+          repository: node
+          tag: "18-bullseye"
+          pullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 1001
+          runAsGroup: 1001
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+        repositories:
+          - url: "https://example.com/adapter.git"
+            branch: "v1.0.0"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - exists:
+          path: spec.template.spec.initContainers
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: adapter-installer
+      - equal:
+          path: spec.template.spec.initContainers[0].image
+          value: "node:18-bullseye"
+      - equal:
+          path: spec.template.spec.initContainers[0].imagePullPolicy
+          value: "IfNotPresent"
+
+  - it: should have correct security context for initContainer
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        image:
+          repository: node
+          tag: "18-bullseye"
+          pullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 1001
+          runAsGroup: 1001
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsUser
+          value: 1001
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsGroup
+          value: 1001
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.allowPrivilegeEscalation
+          value: false
+
+  - it: should mount configmap and volumes correctly in initContainer
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        image:
+          repository: node
+          tag: "18-bullseye"
+        repositories:
+          - url: "https://example.com/adapter.git"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - exists:
+          path: spec.template.spec.initContainers[0].volumeMounts
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: adapter-installer-script
+            mountPath: /scripts
+            readOnly: true
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: RELEASE-NAME-iap-assets-volume
+            mountPath: /opt/itential/platform/services/custom
+
+  - it: should have repository arrays in command args
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - url: "https://example.com/adapter1.git"
+            branch: "v1.0.0"
+          - "https://example.com/adapter2.git"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - exists:
+          path: spec.template.spec.initContainers[0].args
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*REPOS=\(\s+"https://example.com/adapter1.git"\s+"https://example.com/adapter2.git"\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*BRANCHES=\(\s+"v1.0.0"\s+""\s+\).*'
+
+  - it: should include adapter-installer-script volume when enabled
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - "https://example.com/adapter.git"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - exists:
+          path: spec.template.spec.volumes
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: adapter-installer-script
+            configMap:
+              name: RELEASE-NAME-iap-adapter-installer
+              defaultMode: 0755
+
+  - it: should add checksum annotation for repositories changes
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - url: "https://example.com/adapter.git"
+            branch: "v1.0.0"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - exists:
+          path: spec.template.metadata.annotations["checksum/repositories"]
+
+  - it: should handle empty repositories list
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories: []
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - exists:
+          path: spec.template.spec.initContainers[0]
+      - exists:
+          path: spec.template.spec.initContainers[0].args
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*REPOS=\(\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*BRANCHES=\(\s+\).*'

@@ -1,0 +1,207 @@
+suite: test npmInstallOptions feature
+templates:
+  - configmap-adapter-installer.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should use default npm options when npmInstallOptions is not specified
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+
+  - it: should use default npm options when npmInstallOptions is null
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions: null
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+
+  - it: should handle empty npmInstallOptions array
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions: []
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+
+  - it: should use custom single npm option
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--production"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --production 2>/dev/null.*"
+
+  - it: should use multiple custom npm options
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--silent"
+          - "--production"
+          - "--ignore-scripts"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --production --ignore-scripts 2>/dev/null.*"
+
+  - it: should handle npm options with special characters
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--registry=https://registry.npmjs.org/"
+          - "--cache=/tmp/npm-cache"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --registry=https://registry.npmjs.org/ --cache=/tmp/npm-cache 2>/dev/null.*"
+
+  - it: should handle all common npm install options
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--silent"
+          - "--no-audit"
+          - "--no-fund"
+          - "--production"
+          - "--ignore-scripts"
+          - "--no-optional"
+          - "--legacy-peer-deps"
+          - "--force"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --no-audit --no-fund --production --ignore-scripts --no-optional --legacy-peer-deps --force 2>/dev/null.*"
+
+  - it: should work with only verbose flags
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--verbose"
+          - "--progress"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --verbose --progress 2>/dev/null.*"
+
+  - it: should preserve exact option order
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--force"
+          - "--silent"
+          - "--production"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --force --silent --production 2>/dev/null.*"
+
+  - it: should work with custom npm config options
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--userconfig=/tmp/.npmrc"
+          - "--globalconfig=/etc/npmrc"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --userconfig=/tmp/.npmrc --globalconfig=/etc/npmrc 2>/dev/null.*"
+
+  - it: should handle options with values containing spaces
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--prefix=/opt/custom path"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --prefix=/opt/custom path 2>/dev/null.*"
+
+  - it: should work with minimal configuration
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--only=production"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --only=production 2>/dev/null.*"
