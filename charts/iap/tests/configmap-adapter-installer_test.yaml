@@ -101,7 +101,7 @@ tests:
           path: data["install-adapters.sh"]
           pattern: ".*set -e.*"
 
-  - it: should contain pod-0 only execution logic
+  - it: should contain hostname logging
     set:
       mountAdapterVolume: true
       initAdapterInstaller:
@@ -109,10 +109,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: '.*if \[\[ "\$HOSTNAME" != \*"-0" \]\]; then.*'
-      - matchRegex:
-          path: data["install-adapters.sh"]
-          pattern: ".*Skipping adapter installation on replica.*"
+          pattern: ".*Running adapter installation on.*HOSTNAME.*"
 
   - it: should contain npm install with default options when npmInstallOptions not specified
     set:

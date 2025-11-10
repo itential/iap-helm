@@ -14,14 +14,7 @@ data:
     #!/bin/bash
     set -e
     
-    # Only run adapter installation on the first replica (pod-0)
-    if [[ "$HOSTNAME" != *"-0" ]]; then
-        echo "Skipping adapter installation on replica $HOSTNAME (only runs on pod-0)"
-        echo "Non-pod-0 replica - exiting init container"
-        exit 0
-    fi
-    
-    echo "Running adapter installation on pod-0..."
+    echo "Running adapter installation on $HOSTNAME..."
     cd /opt/itential/platform/services/custom
     
     # Build list of expected adapters from repositories
