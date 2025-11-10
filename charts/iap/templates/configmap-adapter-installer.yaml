@@ -164,7 +164,7 @@ data:
                     mkdir -p /tmp/.npm
                     
                     # Run npm install and capture exit code (ignore stderr for warnings)
-                    npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund")) }} {{ . }}{{- end }} 2>/dev/null
+                    npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund" "--ignore-scripts")) }} {{ . }}{{- end }} 2>/dev/null
                     NPM_EXIT_CODE=$?
                     
                     # Check if packages were actually installed regardless of exit code

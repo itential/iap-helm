@@ -44,6 +44,7 @@ initAdapterInstaller:
     - "--silent"
     - "--no-audit"
     - "--no-fund"
+    - "--ignore-scripts"
   # -- List of adapter repositories to install
   # Each repository can be:
   # 1. A simple string URL (clones default branch)

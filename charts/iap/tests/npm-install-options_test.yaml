@@ -16,7 +16,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
 
   - it: should use default npm options when npmInstallOptions is null
     set:
@@ -31,7 +31,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
 
   - it: should handle empty npmInstallOptions array
     set:
@@ -46,7 +46,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
 
   - it: should use custom single npm option
     set:

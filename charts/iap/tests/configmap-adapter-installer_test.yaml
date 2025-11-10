@@ -119,7 +119,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
 
   - it: should use custom npm install options when specified
     set:
@@ -143,7 +143,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
 
   - it: should contain git clone logic
     set:
