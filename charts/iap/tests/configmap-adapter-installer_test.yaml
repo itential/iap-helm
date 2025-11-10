@@ -1,0 +1,286 @@
+suite: test configmap-adapter-installer template
+templates:
+  - configmap-adapter-installer.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not create ConfigMap when initAdapterInstaller is disabled
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not create ConfigMap when mountAdapterVolume is false
+    set:
+      mountAdapterVolume: false
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not create ConfigMap when both conditions are false
+    set:
+      mountAdapterVolume: false
+      initAdapterInstaller:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should create ConfigMap when both conditions are true
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - isAPIVersion:
+          of: v1
+
+  - it: should have correct metadata when enabled
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-iap-adapter-installer
+      - exists:
+          path: metadata.labels
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: iap
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: "adapter-installer"
+
+  - it: should have correct annotations when enabled
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - exists:
+          path: metadata.annotations
+      - equal:
+          path: metadata.annotations["kubernetes.io/description"]
+          value: "ConfigMap containing the adapter installer script for IAP initContainer."
+
+  - it: should contain install-adapters.sh script
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - exists:
+          path: data
+      - exists:
+          path: data["install-adapters.sh"]
+
+  - it: should have shebang and set -e in script
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: "^#!/bin/bash"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*set -e.*"
+
+  - it: should contain hostname logging
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*Running adapter installation on.*HOSTNAME.*"
+
+  - it: should contain npm install with default options when npmInstallOptions not specified
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+
+  - it: should use custom npm install options when specified
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--production"
+          - "--ignore-scripts"
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --production --ignore-scripts 2>/dev/null.*"
+
+  - it: should handle empty npmInstallOptions list
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions: []
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+
+  - it: should contain git clone logic
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*git clone.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*CLONE_CMD=.*"
+
+  - it: should contain cleanup logic for obsolete adapters
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*Cleaning up obsolete adapters.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*REMOVED_ADAPTERS=.*"
+
+  - it: should contain permission setting logic
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*chmod -R 775.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*chown -R itential:users.*"
+
+  - it: should contain npm cache configuration
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*export NPM_CONFIG_CACHE=/tmp/.npm.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*mkdir -p /tmp/.npm.*"
+
+  - it: should contain installation report generation
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*ADAPTER INSTALLATION REPORT.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*SUCCESSFUL_INSTALLS=.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*FAILED_INSTALLS=.*"
+
+  - it: should handle version detection with git commits
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*git rev-parse HEAD.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*git ls-remote.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*CURRENT_COMMIT.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*REQUESTED_COMMIT.*"
+
+  - it: should contain node_modules validation logic
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*if \[ -d "node_modules" \] && \[ "\$\(ls -A node_modules.*'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*Dependencies missing, will reinstall.*"
+
+  - it: should work with complex npmInstallOptions
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--silent"
+          - "--no-audit"
+          - "--no-fund" 
+          - "--production"
+          - "--ignore-scripts"
+          - "--legacy-peer-deps"
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*npm install --silent --no-audit --no-fund --production --ignore-scripts --legacy-peer-deps 2>/dev/null.*"
+
+  - it: should contain working directory setup
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*cd /opt/itential/platform/services/custom.*"
+
+  - it: should contain final directory listing
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*ls -la /opt/itential/platform/services/custom.*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*Final directory contents:.*"
