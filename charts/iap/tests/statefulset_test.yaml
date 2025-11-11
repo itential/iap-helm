@@ -1035,10 +1035,10 @@ tests:
           pattern: '.*BRANCHES=\(\s+\).*'
 
   # Additional TLS Secrets Integration Tests
-  - it: should handle additionalTlsSecrets in StatefulSet
+  - it: should handle additionalTLSSecrets in StatefulSet
     set:
       statefulset.enabled: true
-      additionalTlsSecrets:
+      additionalTLSSecrets:
         - "client-cert-secret"
       replicaCount: 1
       image:

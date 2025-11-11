@@ -135,7 +135,7 @@ certificate:
 # These secrets are NOT created or managed by this chart - they must exist in the namespace.
 # Each entry should be a string containing the secret name.
 # The secrets will be mounted at /etc/ssl/<secret-name>/
-additionalTlsSecrets: []
+additionalTLSSecrets: []
   # Examples:
   # - "client-cert-secret"        # Mounted at /etc/ssl/client-cert-secret/
   # - "ca-bundle-secret"          # Mounted at /etc/ssl/ca-bundle-secret/
