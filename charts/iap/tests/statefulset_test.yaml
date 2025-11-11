@@ -1033,3 +1033,38 @@ tests:
       - matchRegex:
           path: spec.template.spec.initContainers[0].args[1]
           pattern: '.*BRANCHES=\(\s+\).*'
+
+  # Additional TLS Secrets Integration Tests
+  - it: should handle additionalTLSSecrets in StatefulSet
+    set:
+      statefulset.enabled: true
+      additionalTLSSecrets:
+        - "client-cert-secret"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: "additional-tls-client-cert-secret"
+            mountPath: "/etc/ssl/client-cert-secret"
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: "additional-tls-client-cert-secret"
+            secret:
+              secretName: "client-cert-secret"
+              optional: true
