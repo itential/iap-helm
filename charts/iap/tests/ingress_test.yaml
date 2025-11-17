@@ -1125,7 +1125,7 @@ tests:
           path: spec.rules[1].host
           value: iap-prod-1.example.com
 
-  - it: should work with process exporter and hostOverride
+  - it: should work with process exporter enabled and ingressEnabled true
     set:
       ingress:
         enabled: true
@@ -1137,6 +1137,7 @@ tests:
           hostOverride: "metrics"
       processExporter:
         enabled: true
+        ingressEnabled: true
       service:
         port: 443
       replicaCount: 1
@@ -1154,6 +1155,110 @@ tests:
       - equal:
           path: spec.rules[0].http.paths[1].path
           value: /metrics
+
+  - it: should not include metrics path when processExporter enabled but ingressEnabled false
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      processExporter:
+        enabled: true
+        ingressEnabled: false
+      service:
+        port: 443
+      replicaCount: 1
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 1
+      # Should only have main path, no metrics path
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 1
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /
+
+  - it: should not include metrics path when processExporter disabled
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      processExporter:
+        enabled: false
+        ingressEnabled: true
+      service:
+        port: 443
+      replicaCount: 1
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 1
+      # Should only have main path, no metrics path
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 1
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /
+
+  - it: should include metrics path for all replicas when processExporter enabled and ingressEnabled true
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      processExporter:
+        enabled: true
+        ingressEnabled: true
+      service:
+        port: 443
+      replicaCount: 3
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 3
+      # Each rule should have both main path and metrics path
+      - lengthEqual:
+          path: spec.rules[0].http.paths
+          count: 2
+      - lengthEqual:
+          path: spec.rules[1].http.paths
+          count: 2
+      - lengthEqual:
+          path: spec.rules[2].http.paths
+          count: 2
+      # Verify metrics paths
+      - equal:
+          path: spec.rules[0].http.paths[1].path
+          value: /metrics
+      - equal:
+          path: spec.rules[1].http.paths[1].path
+          value: /metrics
+      - equal:
+          path: spec.rules[2].http.paths[1].path
+          value: /metrics
+      # Verify metrics backend service port names
+      - equal:
+          path: spec.rules[0].http.paths[1].backend.service.port.name
+          value: process-metrics
+      - equal:
+          path: spec.rules[1].http.paths[1].backend.service.port.name
+          value: process-metrics
+      - equal:
+          path: spec.rules[2].http.paths[1].backend.service.port.name
+          value: process-metrics
 
   - it: should preserve service references with hostOverride
     set:
