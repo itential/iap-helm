@@ -306,6 +306,8 @@ affinity: {}
 processExporter:
   # -- Enable process exporter sidecar container
   enabled: false
+  # -- Enable ingress configuration for process exporter metrics
+  ingressEnabled: false
   image:
     # -- Process exporter image repository
     repository: ncabatoff/process-exporter

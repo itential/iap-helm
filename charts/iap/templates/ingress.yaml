@@ -63,7 +63,7 @@ spec:
               number: {{ $.Values.service.port }}
         path: {{ $.Values.ingress.directAccess.path | default "/" }}
         pathType: {{ $.Values.ingress.pathType | default "Prefix" }}
-      {{- if and $.Values.processExporter $.Values.processExporter.enabled }}
+      {{- if and $.Values.processExporter $.Values.processExporter.enabled $.Values.processExporter.ingressEnabled }}
       - backend:
           service:
             name: {{ $.Values.service.name }}-headless-{{ $i }}
