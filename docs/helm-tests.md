@@ -77,6 +77,7 @@ postInstallTests:
       - "Pronghorn_LifecycleManager_Application"
       - "Pronghorn_ConfigurationManager_Application"
       - "Pronghorn_NSOManager_Application"
+      - "Pronghorn_AppArtifacts_Application"
 ```
 
 ### Configuration Options
@@ -114,7 +115,7 @@ The comprehensive test performs three validation checks on each pod replica:
 - ✅ Version consistency across all replicas
 
 #### 3. Process Count Validation
-- ✅ **Required Processes** (15 core processes):
+- ✅ **Required Processes** (14 core processes):
   - Pronghorn_core
   - Pronghorn_Jst_Application
   - Pronghorn_TemplateBuilder_Application
@@ -129,12 +130,12 @@ The comprehensive test performs three validation checks on each pod replica:
   - Pronghorn_WorkflowBuilder_Application
   - Pronghorn_WorkFlowEngine_Application
   - Pronghorn_Search_Application
-  - Pronghorn_AppArtifacts_Application
 
 - ℹ️ **Optional Processes** (configurable):
   - Pronghorn_LifecycleManager_Application
   - Pronghorn_ConfigurationManager_Application
   - Pronghorn_NSOManager_Application
+  - Pronghorn_AppArtifacts_Application
 
 ### Test Execution Flow
 
@@ -156,8 +157,8 @@ The comprehensive test performs three validation checks on each pod replica:
   Replicas: 1
   Namespace: na
   Expected version: 6.1.1
-  Required processes: 15
-  Optional processes: 3
+  Required processes: 14
+  Optional processes: 4
   Max wait time: 300s
   Retry interval: 15s
 
@@ -176,7 +177,7 @@ The comprehensive test performs three validation checks on each pod replica:
     📄 Version Installed: "6.1.1"
     ✅ Version matches: 6.1.1
   🔍 Process check for pod 0: iap-na-0
-    📊 Processes: 15/15 required, 0/3 optional
+    📊 Processes: 14/14 required, 1/4 optional
     ✅ All required processes running
   📊 Pod 0 Summary:
     Health: ✅ PASS
@@ -333,6 +334,7 @@ postInstallTests:
       - "Pronghorn_LifecycleManager_Application"
       - "Pronghorn_ConfigurationManager_Application" 
       - "Pronghorn_NSOManager_Application"
+      - "Pronghorn_AppArtifacts_Application"
       - "Pronghorn_CustomApp_Application"  # Add your custom process
 ```
 

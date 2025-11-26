@@ -72,6 +72,7 @@ postInstallTests:
       - "Pronghorn_LifecycleManager_Application"
       - "Pronghorn_ConfigurationManager_Application"
       - "Pronghorn_NSOManager_Application"
+      - "Pronghorn_AppArtifacts_Application"
 
 certManager:
   # -- Toggles the use of cert-manager for managing the TLS certificates. Setting this to false

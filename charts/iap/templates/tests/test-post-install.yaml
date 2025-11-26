@@ -44,7 +44,7 @@ spec:
           version_path="/version"
           
           # Process configuration
-          required_processes="Pronghorn_core Pronghorn_Jst_Application Pronghorn_TemplateBuilder_Application Pronghorn_AGManager_Application Pronghorn_Tags_Application Pronghorn_FormBuilder_Application Pronghorn_JsonForms_Application Pronghorn_MOP_Application Pronghorn_AutomationStudio_Application Pronghorn_OperationsManager_Application Pronghorn_GatewayManager_Application Pronghorn_WorkflowBuilder_Application Pronghorn_WorkFlowEngine_Application Pronghorn_Search_Application Pronghorn_AppArtifacts_Application"
+          required_processes="Pronghorn_core Pronghorn_Jst_Application Pronghorn_TemplateBuilder_Application Pronghorn_AGManager_Application Pronghorn_Tags_Application Pronghorn_FormBuilder_Application Pronghorn_JsonForms_Application Pronghorn_MOP_Application Pronghorn_AutomationStudio_Application Pronghorn_OperationsManager_Application Pronghorn_GatewayManager_Application Pronghorn_WorkflowBuilder_Application Pronghorn_WorkFlowEngine_Application Pronghorn_Search_Application"
           optional_processes="{{- range .Values.postInstallTests.processCountTest.optionalProcesses }}{{ . | replace " " "_" }} {{- end }}"
           
           # Count processes
