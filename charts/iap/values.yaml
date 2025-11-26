@@ -56,13 +56,22 @@ initAdapterInstaller:
     #   branch: "v1.2.3"  # Clones specific branch/tag
   
 
-tests:
+# Post-installation test configuration 
+postInstallTests:
+  # -- Enable or disable all post-install tests (helm test command)
   enabled: true
+  # -- Maximum time to wait for tests to pass before failing (in seconds)
   readinessTimeout: 300
-  image:
-    repository: busybox
-    tag: latest
-    pullPolicy: IfNotPresent
+  # -- Time to live after test completion (in seconds)
+  # Job, pod resources including logs will be automatically deleted after this duration
+  ttlSecondsAfterFinished: 300  # 5 minutes default
+  # Process count verification configuration
+  processCountTest:
+    # -- Optional Itential applications that won't cause test failure if missing
+    optionalProcesses:
+      - "Pronghorn_LifecycleManager_Application"
+      - "Pronghorn_ConfigurationManager_Application"
+      - "Pronghorn_NSOManager_Application"
 
 certManager:
   # -- Toggles the use of cert-manager for managing the TLS certificates. Setting this to false

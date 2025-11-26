@@ -24,5 +24,4 @@
 # Itential patterns to ignore
 lab-setup
 values-*
-tests/
 .github
