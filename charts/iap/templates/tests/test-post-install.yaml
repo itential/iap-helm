@@ -1,0 +1,310 @@
+{{- if .Values.postInstallTests.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ include "iap.fullname" . }}-test-post-install"
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  ttlSecondsAfterFinished: {{ .Values.postInstallTests.ttlSecondsAfterFinished | default 300 }}
+  template:
+    metadata:
+      labels:
+        {{- include "iap.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: "{{ include "iap.fullname" . }}-test"
+      containers:
+      - name: post-install-test
+        image: bitnami/kubectl:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "🚀 Starting Platform Post-Installation Comprehensive Test Suite..."
+          echo "⏰ Test started at: $(date)"
+          echo ""
+          
+          # Test configuration
+          max_wait={{ .Values.postInstallTests.readinessTimeout | default 300 }}
+          wait_time=0
+          retry_interval=15
+          replica_count={{ .Values.replicaCount | default 1 }}
+          namespace="{{ .Release.Namespace }}"
+          protocol="{{- if .Values.useTLS }}https{{- else }}http{{- end }}"
+          expected_version="{{ .Values.image.tag }}"
+          
+          # Test paths
+          health_path="/health/status"
+          version_path="/version"
+          
+          # Process configuration
+          required_processes="Pronghorn_core Pronghorn_Jst_Application Pronghorn_TemplateBuilder_Application Pronghorn_AGManager_Application Pronghorn_Tags_Application Pronghorn_FormBuilder_Application Pronghorn_JsonForms_Application Pronghorn_MOP_Application Pronghorn_AutomationStudio_Application Pronghorn_OperationsManager_Application Pronghorn_GatewayManager_Application Pronghorn_WorkflowBuilder_Application Pronghorn_WorkFlowEngine_Application Pronghorn_Search_Application"
+          optional_processes="{{- range .Values.postInstallTests.processCountTest.optionalProcesses }}{{ . | replace " " "_" }} {{- end }}"
+          
+          # Count processes
+          required_count=$(echo ${required_processes} | wc -w)
+          optional_count=$(echo ${optional_processes} | wc -w)
+          
+          echo "📋 Test Configuration:"
+          echo "  Protocol: ${protocol}"
+          echo "  Replicas: ${replica_count}"
+          echo "  Namespace: ${namespace}"
+          echo "  Expected version: ${expected_version}"
+          echo "  Required processes: ${required_count}"
+          echo "  Optional processes: ${optional_count}"
+          echo "  Max wait time: ${max_wait}s"
+          echo "  Retry interval: ${retry_interval}s"
+          echo ""
+          
+          # Function to test health endpoint for a pod
+          test_health_endpoint() {
+            local pod_index=$1
+            local pod_url="${protocol}://{{ .Values.service.name }}-headless-${pod_index}.${namespace}.svc.cluster.local:{{ .Values.service.port }}${health_path}"
+            
+            echo "  🔍 Health check for pod ${pod_index}: ${pod_url}"
+            
+            if timeout 15 curl -k -s --connect-timeout 10 --max-time 10 "${pod_url}" > /tmp/health_response_${pod_index} 2>/dev/null; then
+          response=$(cat /tmp/health_response_${pod_index})
+          
+          # Parse health status
+          apps_status=$(echo "${response}" | grep -o '"apps":"[^"]*"' | cut -d'"' -f4)
+          adapters_status=$(echo "${response}" | grep -o '"adapters":"[^"]*"' | cut -d'"' -f4)
+          redis_status=$(echo "${response}" | grep -o '{"service":"redis","status":"[^"]*"}' | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+          mongo_status=$(echo "${response}" | grep -o '{"service":"mongo","status":"[^"]*"}' | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+          
+          # Check all components
+          all_healthy=true
+          if [ "${apps_status}" != "running" ]; then
+            echo "    ❌ Apps status: ${apps_status} (expected: running)"
+            all_healthy=false
+          else
+            echo "    ✅ Apps: running"
+          fi
+          
+          if [ "${adapters_status}" != "running" ]; then
+            echo "    ❌ Adapters status: ${adapters_status} (expected: running)"
+            all_healthy=false
+          else
+            echo "    ✅ Adapters: running"
+          fi
+          
+          if [ "${redis_status}" != "running" ]; then
+            echo "    ❌ Redis status: ${redis_status} (expected: running)"
+            all_healthy=false
+          else
+            echo "    ✅ Redis: running"
+          fi
+          
+          if [ "${mongo_status}" != "running" ]; then
+            echo "    ❌ Mongo status: ${mongo_status} (expected: running)"
+            all_healthy=false
+          else
+            echo "    ✅ Mongo: running"
+          fi
+          
+          [ "${all_healthy}" = "true" ] && return 0 || return 1
+            else
+          echo "    ❌ Health endpoint request failed"
+          return 1
+            fi
+          }
+          
+          # Function to test version endpoint for a pod
+          test_version_endpoint() {
+            local pod_index=$1
+            local pod_url="${protocol}://{{ .Values.service.name }}-headless-${pod_index}.${namespace}.svc.cluster.local:{{ .Values.service.port }}${version_path}"
+            
+            echo "  🔍 Version check for pod ${pod_index}: ${pod_url}"
+            
+            if timeout 15 curl -k -s --connect-timeout 10 --max-time 10 "${pod_url}" > /tmp/version_response_${pod_index} 2>/dev/null; then
+          response=$(cat /tmp/version_response_${pod_index})
+          echo "    📄 Version Installed: ${response}"
+          
+          if echo "${response}" | grep -q "${expected_version}"; then
+            echo "    ✅ Version matches: ${expected_version}"
+            return 0
+          else
+            echo "    ❌ Version mismatch - expected: ${expected_version}"
+            return 1
+          fi
+            else
+          echo "    ❌ Version endpoint request failed"
+          return 1
+            fi
+          }
+          
+          # Function to test process count for a pod
+          test_process_count() {
+            local pod_index=$1
+            local pod_name="{{ include "iap.fullname" . }}-${pod_index}"
+            
+            echo "  🔍 Process check for pod ${pod_index}: ${pod_name}"
+            
+            # Check if pod exists and is running
+            if ! kubectl get pod "${pod_name}" -n "${namespace}" >/dev/null 2>&1; then
+          echo "    ❌ Pod ${pod_name} not found"
+          return 1
+            fi
+            
+            local pod_status=$(kubectl get pod "${pod_name}" -n "${namespace}" -o jsonpath='{.status.phase}')
+            if [ "${pod_status}" != "Running" ]; then
+          echo "    ❌ Pod ${pod_name} is not running (status: ${pod_status})"
+          return 1
+            fi
+            
+            # Get process list
+            if ! process_list=$(kubectl exec -n "${namespace}" "${pod_name}" -c iap -- ps aux 2>/dev/null); then
+          echo "    ❌ Failed to get process list from pod"
+          return 1
+            fi
+            
+            # Check required processes
+            required_found=0
+            required_missing=0
+            missing_list=""
+            
+            for process in ${required_processes}; do
+          process_name=$(echo "${process}" | sed 's/_/ /g')
+          if echo "${process_list}" | grep -q "${process_name}"; then
+            required_found=$((required_found + 1))
+          else
+            required_missing=$((required_missing + 1))
+            missing_list="${missing_list}\\n      - ${process_name}"
+          fi
+            done
+            
+            # Check optional processes
+            optional_found=0
+            for process in ${optional_processes}; do
+          process_name=$(echo "${process}" | sed 's/_/ /g')
+          if echo "${process_list}" | grep -q "${process_name}"; then
+            optional_found=$((optional_found + 1))
+          fi
+            done
+            
+            echo "    📊 Processes: ${required_found}/${required_count} required, ${optional_found}/${optional_count} optional"
+            
+            if [ ${required_missing} -eq 0 ]; then
+          echo "    ✅ All required processes running"
+          [ ${optional_found} -gt 0 ] && echo "    🎉 ${optional_found} optional process(es) also running"
+          return 0
+            else
+          echo "    ❌ Missing ${required_missing} required process(es)"
+          return 1
+            fi
+          }
+          
+          # Function to run comprehensive test for a single pod
+          test_pod_comprehensive() {
+            local pod_index=$1
+            echo "🔍 Testing pod ${pod_index} - Comprehensive Check"
+            
+            local health_ok=false
+            local version_ok=false
+            local process_ok=false
+            
+            # Test health endpoint
+            if test_health_endpoint $pod_index; then
+          health_ok=true
+            fi
+            
+            # Test version endpoint  
+            if test_version_endpoint $pod_index; then
+          version_ok=true
+            fi
+            
+            # Test process count
+            if test_process_count $pod_index; then
+          process_ok=true
+            fi
+            
+            # Summary for this pod
+            echo ""
+            echo "  📊 Pod ${pod_index} Summary:"
+            echo "    Health: $([ "$health_ok" = "true" ] && echo "✅ PASS" || echo "❌ FAIL")"
+            echo "    Version: $([ "$version_ok" = "true" ] && echo "✅ PASS" || echo "❌ FAIL")"
+            echo "    Processes: $([ "$process_ok" = "true" ] && echo "✅ PASS" || echo "❌ FAIL")"
+            
+            # Pod passes if all tests pass
+            [ "$health_ok" = "true" ] && [ "$version_ok" = "true" ] && [ "$process_ok" = "true" ]
+          }
+          
+          # Main test loop
+          echo "🔄 Starting comprehensive test cycle..."
+          all_tests_passed=false
+          
+          while [ $wait_time -lt $max_wait ] && [ "$all_tests_passed" = "false" ]; do
+            echo ""
+            echo "=== Test Round $(( (wait_time / retry_interval) + 1 )) ==="
+            
+            passed_count=0
+            failed_count=0
+            
+            # Test each replica
+            for i in $(seq 0 $((replica_count - 1))); do
+          if test_pod_comprehensive $i; then
+            passed_count=$((passed_count + 1))
+          else
+            failed_count=$((failed_count + 1))
+          fi
+          echo ""
+            done
+            
+            echo ""
+            echo "📊 Round Summary:"
+            echo "  Pods passed all tests: ${passed_count}/${replica_count}"
+            echo "  Pods with failures: ${failed_count}/${replica_count}"
+            echo "  Time elapsed: ${wait_time}s"
+            
+            if [ $passed_count -eq $replica_count ]; then
+          all_tests_passed=true
+          echo "  ✅ All pods passed comprehensive testing!"
+            else
+          echo "  ⏳ Waiting ${retry_interval}s before next test round..."
+          sleep $retry_interval
+          wait_time=$((wait_time + retry_interval))
+            fi
+          done
+          
+          # Final results
+          if [ "$all_tests_passed" = "true" ]; then
+            echo ""
+            echo ""
+            echo "🎉 Platform POST-INSTALLATION TESTS PASSED!"
+            echo "📋 Final Results:"
+            echo "  ✅ All ${replica_count} pod(s) passed comprehensive testing"
+            echo "  ✅ Health endpoints: All components healthy"
+            echo "  ✅ Version verification: Expected version deployed"
+            echo "  ✅ Process verification: All required processes running"
+            echo "  ⏱️  Total test duration: ${wait_time}s"
+            echo "⏰ Test completed at: $(date)"
+            
+            exit 0
+          else
+            echo ""
+            echo ""
+            echo "❌ Platform POST-INSTALLATION TESTS FAILED!"
+            echo "💔 Not all pods passed comprehensive testing after ${max_wait}s"
+            echo ""
+            echo "🔍 Final diagnostic information available in pod logs"
+            echo "💡 Common issues:"
+            echo "   - Application still starting up"
+            echo "   - Resource constraints"
+            echo "   - Configuration issues"
+            echo "   - Network connectivity problems"
+            echo ""
+            echo "🔧 Troubleshooting:"
+            echo "   1. Check pod logs: kubectl logs <pod-name> -n ${namespace} -c iap"
+            echo "   2. Check pod status: kubectl get pods -n ${namespace}"
+            echo "   3. Check resource usage: kubectl top pod -n ${namespace}"
+            echo "   4. Verify configuration and secrets"
+            
+            exit 1
+          fi
+{{- end }}

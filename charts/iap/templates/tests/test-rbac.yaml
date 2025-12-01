@@ -1,0 +1,50 @@
+{{- if .Values.postInstallTests.enabled }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: "{{ include "iap.fullname" . }}-test"
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "{{ include "iap.fullname" . }}-test"
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: "{{ include "iap.fullname" . }}-test"
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: "{{ include "iap.fullname" . }}-test"
+subjects:
+- kind: ServiceAccount
+  name: "{{ include "iap.fullname" . }}-test"
+  namespace: {{ .Release.Namespace }}
+{{- end }}
