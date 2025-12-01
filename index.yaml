@@ -3,6 +3,30 @@ entries:
   iap:
   - apiVersion: v2
     appVersion: 6.0.7
+    created: "2025-12-01T15:44:19.301709744Z"
+    dependencies:
+    - condition: certManager.enabled
+      name: cert-manager
+      repository: https://charts.jetstack.io
+      version: 1.12.3
+    - condition: external-dns.enabled
+      name: external-dns
+      repository: https://kubernetes-sigs.github.io/external-dns/
+      version: 1.17.0
+    description: A Helm chart for Kubernetes that can build an Itential Automation
+      Platform environment (IAP)
+    digest: 051f8b6b07f24006900ef2d350cd6a1ab49e660e6a79264f66a32cd37ce14837
+    home: https://github.com/itential/iap-helm
+    icon: https://www.itential.com/wp-content/uploads/2023/12/Product-Icon_IAG.png
+    name: iap
+    sources:
+    - https://github.com/itential/iap-helm
+    type: application
+    urls:
+    - https://github.com/itential/iap-helm/releases/download/iap-1.8.0/iap-1.8.0.tgz
+    version: 1.8.0
+  - apiVersion: v2
+    appVersion: 6.0.7
     created: "2025-11-11T21:00:01.216589268Z"
     dependencies:
     - condition: certManager.enabled
@@ -241,4 +265,4 @@ entries:
     urls:
     - https://github.com/itential/iap-helm/releases/download/iap-1.0.6/iap-1.0.6.tgz
     version: 1.0.6
-generated: "2025-11-11T21:00:01.216627639Z"
+generated: "2025-12-01T15:44:19.301753333Z"
