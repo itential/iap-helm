@@ -234,6 +234,9 @@ volumeMounts: []
 # -- Additional nodeSelectors
 nodeSelector: {}
 
+# -- Host aliases for DNS resolution within the pod (for testing)
+hostAliases: []
+
 # -- Additonal tolerations
 tolerations: []
 

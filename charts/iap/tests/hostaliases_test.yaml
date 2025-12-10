@@ -1,0 +1,406 @@
+---
+suite: test hostAliases configuration in StatefulSet
+templates:
+  - statefulset.yaml
+values:
+  - ../tests/test-values.yaml
+tests:
+  - it: should not render hostAliases when empty
+    set:
+      statefulset.enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+      hostAliases: []
+    asserts:
+      - notExists:
+          path: spec.template.spec.hostAliases
+
+  - it: should not render hostAliases when not defined
+    set:
+      statefulset.enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.hostAliases
+
+  - it: should render single hostAlias correctly
+    set:
+      statefulset.enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+      hostAliases:
+        - ip: "172.85.0.20"
+          hostnames:
+            - "pe-redis01"
+    asserts:
+      - exists:
+          path: spec.template.spec.hostAliases
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "172.85.0.20"
+      - equal:
+          path: spec.template.spec.hostAliases[0].hostnames[0]
+          value: "pe-redis01"
+      - lengthEqual:
+          path: spec.template.spec.hostAliases
+          count: 1
+      - lengthEqual:
+          path: spec.template.spec.hostAliases[0].hostnames
+          count: 1
+
+  - it: should render multiple hostAliases correctly
+    set:
+      statefulset.enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+      hostAliases:
+        - ip: "172.85.0.20"
+          hostnames:
+            - "pe-redis01"
+            - "redis-master"
+        - ip: "172.85.0.21"
+          hostnames:
+            - "pe-redis02"
+        - ip: "172.85.0.22"
+          hostnames:
+            - "pe-redis03"
+    asserts:
+      - exists:
+          path: spec.template.spec.hostAliases
+      - lengthEqual:
+          path: spec.template.spec.hostAliases
+          count: 3
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "172.85.0.20"
+      - equal:
+          path: spec.template.spec.hostAliases[0].hostnames[0]
+          value: "pe-redis01"
+      - equal:
+          path: spec.template.spec.hostAliases[0].hostnames[1]
+          value: "redis-master"
+      - equal:
+          path: spec.template.spec.hostAliases[1].ip
+          value: "172.85.0.21"
+      - equal:
+          path: spec.template.spec.hostAliases[1].hostnames[0]
+          value: "pe-redis02"
+      - equal:
+          path: spec.template.spec.hostAliases[2].ip
+          value: "172.85.0.22"
+      - equal:
+          path: spec.template.spec.hostAliases[2].hostnames[0]
+          value: "pe-redis03"
+      - lengthEqual:
+          path: spec.template.spec.hostAliases[0].hostnames
+          count: 2
+      - lengthEqual:
+          path: spec.template.spec.hostAliases[1].hostnames
+          count: 1
+      - lengthEqual:
+          path: spec.template.spec.hostAliases[2].hostnames
+          count: 1
+
+  - it: should render performance lab Redis Sentinel configuration
+    set:
+      statefulset.enabled: true
+      replicaCount: 2
+      image:
+        repository: "497639811223.dkr.ecr.us-east-2.amazonaws.com/automation-platform-config"
+        tag: "6.1.1"
+      service:
+        port: 443
+      applicationPort: 3443
+      useTLS: true
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+      hostAliases:
+        - ip: "172.85.0.20"
+          hostnames:
+            - "pe-redis01"
+        - ip: "172.85.0.21"
+          hostnames:
+            - "pe-redis02"
+        - ip: "172.85.0.22"
+          hostnames:
+            - "pe-redis03"
+    asserts:
+      - exists:
+          path: spec.template.spec.hostAliases
+      - lengthEqual:
+          path: spec.template.spec.hostAliases
+          count: 3
+      - contains:
+          path: spec.template.spec.hostAliases
+          content:
+            ip: "172.85.0.20"
+            hostnames:
+              - "pe-redis01"
+      - contains:
+          path: spec.template.spec.hostAliases
+          content:
+            ip: "172.85.0.21"
+            hostnames:
+              - "pe-redis02"
+      - contains:
+          path: spec.template.spec.hostAliases
+          content:
+            ip: "172.85.0.22"
+            hostnames:
+              - "pe-redis03"
+
+  - it: should handle complex hostAliases with multiple hostnames per IP
+    set:
+      statefulset.enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+      hostAliases:
+        - ip: "192.168.1.10"
+          hostnames:
+            - "database.local"
+            - "db.local"
+            - "mysql.local"
+        - ip: "192.168.1.20"
+          hostnames:
+            - "cache.local"
+            - "redis.local"
+        - ip: "10.0.0.100"
+          hostnames:
+            - "api-gateway"
+            - "gateway.internal"
+            - "gw"
+    asserts:
+      - exists:
+          path: spec.template.spec.hostAliases
+      - lengthEqual:
+          path: spec.template.spec.hostAliases
+          count: 3
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "192.168.1.10"
+      - lengthEqual:
+          path: spec.template.spec.hostAliases[0].hostnames
+          count: 3
+      - contains:
+          path: spec.template.spec.hostAliases[0].hostnames
+          content: "database.local"
+      - contains:
+          path: spec.template.spec.hostAliases[0].hostnames
+          content: "db.local"
+      - contains:
+          path: spec.template.spec.hostAliases[0].hostnames
+          content: "mysql.local"
+      - equal:
+          path: spec.template.spec.hostAliases[1].ip
+          value: "192.168.1.20"
+      - lengthEqual:
+          path: spec.template.spec.hostAliases[1].hostnames
+          count: 2
+      - equal:
+          path: spec.template.spec.hostAliases[2].ip
+          value: "10.0.0.100"
+      - lengthEqual:
+          path: spec.template.spec.hostAliases[2].hostnames
+          count: 3
+
+  - it: should validate hostAliases structure integrity
+    set:
+      statefulset.enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+      hostAliases:
+        - ip: "172.85.0.20"
+          hostnames:
+            - "pe-redis01"
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - exists:
+          path: spec.template.spec.hostAliases
+      - isNotEmpty:
+          path: spec.template.spec.hostAliases
+      - exists:
+          path: spec.template.spec.hostAliases[0].hostnames
+      - exists:
+          path: spec.template.spec.hostAliases[0].ip
+
+  - it: should render hostAliases when other features are enabled
+    set:
+      statefulset.enabled: true
+      replicaCount: 2
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 443
+      applicationPort: 8443
+      useTLS: true
+      podSecurityContext:
+        fsGroup: 1001
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: true
+      nodeSelector:
+        disktype: "ssd"
+      tolerations:
+        - key: "test-key"
+          operator: "Equal"
+          value: "test-value"
+          effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: test-app
+              topologyKey: kubernetes.io/hostname
+      hostAliases:
+        - ip: "172.85.0.20"
+          hostnames:
+            - "pe-redis01"
+        - ip: "172.85.0.21"
+          hostnames:
+            - "pe-redis02"
+    asserts:
+      - exists:
+          path: spec.template.spec.hostAliases
+      - exists:
+          path: spec.template.spec.nodeSelector
+      - exists:
+          path: spec.template.spec.tolerations
+      - exists:
+          path: spec.template.spec.affinity
+      - lengthEqual:
+          path: spec.template.spec.hostAliases
+          count: 2
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "172.85.0.20"
+      - equal:
+          path: spec.template.spec.hostAliases[1].ip
+          value: "172.85.0.21"
+      - equal:
+          path: spec.template.spec.nodeSelector.disktype
+          value: "ssd"
+
+  - it: should handle IPv6 addresses in hostAliases
+    set:
+      statefulset.enabled: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      podSecurityContext: {}
+      securityContext: {}
+      persistentVolumeClaims:
+        enabled: false
+      processExporter:
+        enabled: false
+      hostAliases:
+        - ip: "2001:db8::1"
+          hostnames:
+            - "ipv6-service.local"
+        - ip: "::1"
+          hostnames:
+            - "localhost-ipv6"
+    asserts:
+      - exists:
+          path: spec.template.spec.hostAliases
+      - lengthEqual:
+          path: spec.template.spec.hostAliases
+          count: 2
+      - equal:
+          path: spec.template.spec.hostAliases[0].ip
+          value: "2001:db8::1"
+      - equal:
+          path: spec.template.spec.hostAliases[0].hostnames[0]
+          value: "ipv6-service.local"
+      - equal:
+          path: spec.template.spec.hostAliases[1].ip
+          value: "::1"
+      - equal:
+          path: spec.template.spec.hostAliases[1].hostnames[0]
+          value: "localhost-ipv6"
