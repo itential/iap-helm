@@ -316,6 +316,22 @@ volumeMounts: []
 # -- Additional nodeSelectors
 nodeSelector: {}
 
+# -- Host aliases for DNS resolution within the pod
+# -- Useful for resolving custom hostnames to IP addresses
+# -- Common use case: Redis Sentinels that return hostnames instead of IP addresses
+hostAliases: []
+  # Examples:
+  # - ip: "172.85.0.20"
+  #   hostnames:
+  #     - "pe-redis01"
+  #     - "redis-master"
+  # - ip: "172.85.0.21" 
+  #   hostnames:
+  #     - "pe-redis02"
+  # - ip: "172.85.0.22"
+  #   hostnames:
+  #     - "pe-redis03"
+
 # -- Additonal tolerations
 tolerations: []
 
