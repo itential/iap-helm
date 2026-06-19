@@ -177,7 +177,7 @@ tests:
           path: spec.ports[0].name
           value: "http"
 
-  - it: should handle standard HTTPS port
+  - it: should handle standard port 443 with TLS disabled
     set:
       service:
         name: "https-service"
