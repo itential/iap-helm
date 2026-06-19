@@ -4,7 +4,7 @@ templates:
 values:
   - ../tests/test-values.yaml
 tests:
-  - it: should render Service with default configuration
+  - it: should render Service with TLS disabled configuration
     set:
       service:
         name: "test-service"
