@@ -60,6 +60,16 @@ this secret is left out of the chart to allow for flexibility with its creation.
 | ITENTIAL_VAULT_SECRET_ID | The Hashicorp Vault Secret ID when using Hashicorp Vault as the secrets manager. Only required if using Hashicorp Vault for secrets. | No |
 | ITENTIAL_WEBSERVER_HTTPS_PASSPHRASE | The passphrase used in conjunction with an HTTPS certificate. | No |
 
+##### itential-job-metrics-secrets
+
+This secret contains the MongoDB connection URI for the Job Metrics Exporter. It must reference a
+dedicated read-only MongoDB user separate from the IAP application user. Only required when
+`jobMetricsExporter.enabled` is `true`.
+
+| Secret Key | Description | Required? |
+|:-----------|:------------|:----------|
+| ITENTIAL_JOB_METRIC_MONGO_URI | MongoDB connection URI for a read-only user scoped to the IAP database. | Yes (when exporter enabled) |
+
 ##### iap-ca
 
 This secret represents the CA used by cert-manager to derive all the TLS certificates. Name to be
@@ -192,6 +202,18 @@ understand.
 | podAnnotations | object | `{}` | Additional pod annotations |
 | podLabels | object | `{}` | Additional pod labels |
 | podSecurityContext | object | `{"fsGroup":1001,"runAsNonRoot":true,"runAsUser":1001}` | Additional pod security context. The pods will mount some persistent volumes. These settings allow for that to happen. |
+| jobMetricsExporter.enabled | bool | `false` | Toggle to enable the Job Metrics Exporter standalone Deployment |
+| jobMetricsExporter.image.repository | string | `"ghcr.io/itential/job-metrics-exporter"` | The Job Metrics Exporter image repository |
+| jobMetricsExporter.image.tag | string | `"latest"` | The Job Metrics Exporter image tag |
+| jobMetricsExporter.ingressEnabled | bool | `true` | Expose the exporter via ingress at `<fullname>-<namespace>-job-metrics.<baseDomain>/metrics`. Requires `ingress.directAccess.enabled: true`. |
+| jobMetricsExporter.port | int | `9477` | Job Metrics Exporter listening port |
+| jobMetricsExporter.mongoSecretName | string | `"itential-job-metrics-secrets"` | Name of the Kubernetes secret containing the MongoDB URI |
+| jobMetricsExporter.mongoSecretKey | string | `"ITENTIAL_JOB_METRIC_MONGO_URI"` | Key within the secret that holds the MongoDB URI |
+| jobMetricsExporter.mongoDatabase | string | `""` | MongoDB database name. Must match `ITENTIAL_MONGO_DB_NAME`. When empty the exporter uses its built-in default. |
+| jobMetricsExporter.changeStreamEnabled | bool | `true` | Use MongoDB change streams for real-time job tracking |
+| jobMetricsExporter.pollingEnabled | bool | `false` | Fall back to polling when change streams are unavailable |
+| jobMetricsExporter.logLevel | string | `"info"` | Log level for the exporter (`debug`, `info`, `warn`, `error`) |
+| jobMetricsExporter.logFormat | string | `"json"` | Log format for the exporter (`json`, `text`) |
 | processExporter.enabled | bool | `true` | Toggle to enable the process exporter sidecar container |
 | processExporter.image.repository | string | `"ncabatoff/process-exporter"` | The process exporter image repository |
 | processExporter.image.tag | string | `"latest"` | The process exporter image tag |

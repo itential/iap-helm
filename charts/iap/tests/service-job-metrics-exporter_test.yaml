@@ -1,0 +1,67 @@
+suite: test job-metrics-exporter service
+templates:
+  - service-job-metrics-exporter.yaml
+tests:
+  - it: should not render when disabled
+    set:
+      jobMetricsExporter.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render a Service when enabled
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Service
+
+  - it: should have the correct name
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-iap-job-metrics-exporter
+
+  - it: should be a ClusterIP service
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+
+  - it: should expose the correct port
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.port: 9477
+    asserts:
+      - contains:
+          path: spec.ports
+          content:
+            name: job-metrics
+            port: 9477
+            targetPort: job-metrics
+            protocol: TCP
+
+  - it: should select only job-metrics-exporter pods
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.selector["app.kubernetes.io/component"]
+          value: job-metrics-exporter
+      - equal:
+          path: spec.selector["app.kubernetes.io/name"]
+          value: iap
+
+  - it: should have the component label
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: job-metrics-exporter

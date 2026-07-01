@@ -89,6 +89,14 @@ Direct host names
 {{- end }}
 
 {{/*
+Generate the hostname for the job-metrics-exporter ingress rule.
+Follows the same {fullname}-{namespace}-job-metrics.{baseDomain} convention as DirectAccessHost.
+*/}}
+{{- define "iap.jobMetricsExporterHost" -}}
+{{- printf "%s-%s-job-metrics.%s" (include "iap.fullname" .) .Release.Namespace .Values.ingress.directAccess.baseDomain -}}
+{{- end }}
+
+{{/*
 Generate the full list of TLS hostnames for the ingress spec.
 Includes the load balancer hostname and one entry per replica for direct access.
 Rendered as a YAML list of quoted strings, suitable for use with nindent.

@@ -1,0 +1,104 @@
+suite: test job-metrics-exporter podmonitor
+templates:
+  - podmonitor-job-metrics-exporter.yaml
+tests:
+  - it: should not render when disabled
+    set:
+      jobMetricsExporter.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render a PodMonitor when enabled
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: PodMonitor
+
+  - it: should have the correct name
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-iap-job-metrics-exporter
+
+  - it: should scrape the job-metrics port on 15s interval
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.podMetricsEndpoints[0].port
+          value: job-metrics
+      - equal:
+          path: spec.podMetricsEndpoints[0].interval
+          value: 15s
+      - equal:
+          path: spec.podMetricsEndpoints[0].path
+          value: /metrics
+
+  - it: should select only job-metrics-exporter pods
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: job-metrics-exporter
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/name"]
+          value: iap
+
+  - it: should configure correct namespace selector
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - contains:
+          path: spec.namespaceSelector.matchNames
+          content: NAMESPACE
+
+  - it: should configure the job label
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.jobLabel
+          value: app.kubernetes.io/name
+
+  - it: should have correct labels
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: iap
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: RELEASE-NAME
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: podmonitor
+
+  - it: should set https scheme and tlsConfig when useTLS is true
+    set:
+      jobMetricsExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.podMetricsEndpoints[0].scheme
+          value: https
+      - equal:
+          path: spec.podMetricsEndpoints[0].tlsConfig.insecureSkipVerify
+          value: true
+
+  - it: should not set scheme or tlsConfig when useTLS is false
+    set:
+      jobMetricsExporter.enabled: true
+      useTLS: false
+    asserts:
+      - notExists:
+          path: spec.podMetricsEndpoints[0].scheme
+      - notExists:
+          path: spec.podMetricsEndpoints[0].tlsConfig

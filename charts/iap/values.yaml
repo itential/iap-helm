@@ -410,6 +410,39 @@ processExporter:
   # -- Process exporter metrics port
   port: 9256
 
+# Job Metrics Exporter configuration for monitoring IAP workflow engine metrics
+jobMetricsExporter:
+  # -- Enable the Job Metrics Exporter deployment
+  enabled: false
+  # -- Enable ingress rule exposing the /metrics endpoint via directAccess hostname
+  ingressEnabled: true
+  image:
+    # -- Job Metrics Exporter image repository (public image, no pull secret required)
+    repository: ghcr.io/itential/job-metrics-exporter
+    # -- Job Metrics Exporter image tag
+    tag: latest
+  # -- Port the exporter listens on
+  port: 9477
+  # -- Name of the Kubernetes secret containing the MongoDB URI. The URI must use a
+  # -- dedicated read-only MongoDB user (not the IAP user, which has read/write access).
+  # -- Example: kubectl create secret generic itential-job-metrics-secrets \
+  # --   --from-literal=ITENTIAL_JOB_METRIC_MONGO_URI='mongodb://ro-user:pass@host:27017/itential?replicaSet=rs0'
+  mongoSecretName: "itential-job-metrics-secrets"
+  # -- Key in the secret for the MongoDB URI
+  mongoSecretKey: "ITENTIAL_JOB_METRIC_MONGO_URI"
+  # -- MongoDB database name. Must match ITENTIAL_MONGO_DB_NAME. Defaults to "itential" if unset.
+  mongoDatabase: ""
+  # -- Enable change stream mode for real-time metrics (requires MongoDB replica set)
+  changeStreamEnabled: true
+  # -- Enable background polling mode for point-in-time status snapshots
+  pollingEnabled: false
+  # -- Polling interval (Go duration string, e.g. 60s, 2m)
+  pollingInterval: "60s"
+  # -- Log level (debug, info, warn, error)
+  logLevel: "info"
+  # -- Log format (json or text)
+  logFormat: "json"
+
 # Configuration properties for Itential Automation Platform.
 # In most cases, the default values are sufficient. If the property is commented that means that
 # the default value is being used. This is a list of all possible values for convenience. The

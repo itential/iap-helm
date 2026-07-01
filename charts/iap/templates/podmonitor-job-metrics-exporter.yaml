@@ -1,0 +1,33 @@
+{{- if .Values.jobMetricsExporter.enabled -}}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "iap.fullname" . }}-job-metrics-exporter
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "podmonitor"
+  annotations:
+    kubernetes.io/description: "Itential Automation Platform Job Metrics Exporter Pod Monitor."
+    {{- include "iap.annotations" . | nindent 4 }}
+spec:
+  podMetricsEndpoints:
+    - interval: 15s
+      path: /metrics
+      port: job-metrics
+      {{- if .Values.useTLS }}
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      {{- end }}
+      relabelings:
+        - action: labeldrop
+          regex: __meta_kubernetes_service_annotation_kubectl_kubernetes_io_last_applied_configuration
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames: [ {{ .Release.Namespace | default "default" }} ]
+  selector:
+    matchLabels:
+      {{- include "iap.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: "job-metrics-exporter"
+{{- end -}}

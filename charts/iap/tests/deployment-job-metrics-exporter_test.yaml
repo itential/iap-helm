@@ -1,0 +1,242 @@
+suite: test job-metrics-exporter deployment
+templates:
+  - deployment-job-metrics-exporter.yaml
+tests:
+  - it: should not render when disabled
+    set:
+      jobMetricsExporter.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render a Deployment when enabled
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Deployment
+
+  - it: should have the correct name
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-iap-job-metrics-exporter
+
+  - it: should always set replicas to 1
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should include the component label on the pod template
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: job-metrics-exporter
+
+  - it: should use the configured image
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.image.repository: ghcr.io/itential/job-metrics-exporter
+      jobMetricsExporter.image.tag: v1.0.0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/itential/job-metrics-exporter:v1.0.0
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+
+  - it: should expose the job-metrics port
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.port: 9477
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: job-metrics
+            containerPort: 9477
+            protocol: TCP
+
+  - it: should reference the MongoDB URI from the configured secret
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.mongoSecretName: itential-job-metrics-secrets
+      jobMetricsExporter.mongoSecretKey: ITENTIAL_JOB_METRIC_MONGO_URI
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_MONGO_URI
+            valueFrom:
+              secretKeyRef:
+                name: itential-job-metrics-secrets
+                key: ITENTIAL_JOB_METRIC_MONGO_URI
+
+  - it: should set change stream enabled env var
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.changeStreamEnabled: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_CHANGE_STREAM_ENABLED
+            value: "true"
+
+  - it: should set polling enabled env var
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.pollingEnabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_POLLING_ENABLED
+            value: "false"
+
+  - it: should include polling interval env var when polling is enabled
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.pollingEnabled: true
+      jobMetricsExporter.pollingInterval: "120s"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_POLLING_INTERVAL
+            value: "120s"
+
+  - it: should not include polling interval env var when polling is disabled
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.pollingEnabled: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_POLLING_INTERVAL
+
+  - it: should set log level and format env vars
+    set:
+      jobMetricsExporter.enabled: true
+      jobMetricsExporter.logLevel: "debug"
+      jobMetricsExporter.logFormat: "text"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_LOG_LEVEL
+            value: "debug"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_LOG_FORMAT
+            value: "text"
+
+  - it: should configure liveness and readiness probes on healthz
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /healthz
+
+  - it: should have correct resource requests and limits
+    set:
+      jobMetricsExporter.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 50m
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 64Mi
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 128Mi
+
+  - it: should set TLS env vars and mount cert volume when useTLS is true
+    set:
+      jobMetricsExporter.enabled: true
+      useTLS: true
+      certificate.secretName: iap-tls-secret
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_TLS_ENABLED
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_TLS_CERT_FILE
+            value: /etc/ssl/platform/tls.crt
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_TLS_KEY_FILE
+            value: /etc/ssl/platform/tls.key
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: platform-cert-volume
+            mountPath: /etc/ssl/platform
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: platform-cert-volume
+            secret:
+              secretName: iap-tls-secret
+
+  - it: should use HTTPS scheme for probes when useTLS is true
+    set:
+      jobMetricsExporter.enabled: true
+      useTLS: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.scheme
+          value: HTTPS
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.scheme
+          value: HTTPS
+
+  - it: should not set TLS env vars or volumes when useTLS is false
+    set:
+      jobMetricsExporter.enabled: true
+      useTLS: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ITENTIAL_JOB_METRIC_TLS_ENABLED
+            value: "true"
+      - notExists:
+          path: spec.template.spec.containers[0].volumeMounts
+      - notExists:
+          path: spec.template.spec.volumes
+
+  - it: should use HTTP scheme for probes when useTLS is false
+    set:
+      jobMetricsExporter.enabled: true
+      useTLS: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.scheme
+          value: HTTP
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.scheme
+          value: HTTP

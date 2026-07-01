@@ -89,4 +89,17 @@ spec:
       {{- end }}
   {{- end }}
   {{- end }}
+  # Job metrics exporter direct access
+  {{- if and .Values.jobMetricsExporter .Values.jobMetricsExporter.enabled .Values.jobMetricsExporter.ingressEnabled .Values.ingress.directAccess.enabled }}
+  - host: {{ include "iap.jobMetricsExporterHost" . | quote }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ include "iap.fullname" . }}-job-metrics-exporter
+            port:
+              name: job-metrics
+        path: "/metrics"
+        pathType: "Prefix"
+  {{- end }}
 {{- end }}

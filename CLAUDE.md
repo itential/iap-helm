@@ -34,6 +34,9 @@ iap-helm/
 │   │   ├── serviceaccount.yaml
 │   │   ├── storage-class.yaml
 │   │   ├── PodMonitor.yaml
+│   │   ├── deployment-job-metrics-exporter.yaml
+│   │   ├── service-job-metrics-exporter.yaml
+│   │   ├── podmonitor-job-metrics-exporter.yaml
 │   │   └── tests/
 │   │       ├── test-post-install.yaml
 │   │       └── test-rbac.yaml
@@ -107,6 +110,7 @@ Default requests: `cpu: 3`, `memory: 14Gi`. Default limit: `memory: 14Gi`.
 | `iap.serviceAccountName` | Effective SA name — falls back to fullname when `create: true` and `name` is empty |
 | `iap.ingressTLSHosts` | Full TLS hostname list (load balancer + per-pod direct access) for ingress |
 | `iap.DirectAccessHost` | Generates per-pod hostname for direct ingress access |
+| `iap.jobMetricsExporterHost` | Generates the job-metrics-exporter ingress hostname: `{fullname}-{namespace}-job-metrics.{baseDomain}` |
 
 ---
 
@@ -142,6 +146,11 @@ Two access patterns, both configurable independently:
 - Includes `/metrics` path for process exporter (if enabled)
 - Controlled by `ingress.directAccess.enabled`
 
+### Job Metrics Exporter Access
+- Single hostname: `{fullname}-{namespace}-job-metrics.{baseDomain}`
+- Routes `/metrics` to the `job-metrics-exporter` service
+- Rendered when `jobMetricsExporter.enabled`, `jobMetricsExporter.ingressEnabled`, and `ingress.directAccess.enabled` are all true
+
 Both support configurable `ingressClassName`, TLS sections, and annotations (for ALB or NGINX).
 
 ---
@@ -167,6 +176,7 @@ These Kubernetes secrets must exist before install:
 | Secret | Contents |
 |---|---|
 | `itential-platform-secrets` | All IAP environment secrets (DB passwords, API keys, etc.) |
+| `itential-job-metrics-secrets` | MongoDB URI for the Job Metrics Exporter (read-only user). Required when `jobMetricsExporter.enabled: true`. |
 | `iap-ca` | CA certificate for cert-manager issuer |
 | Image pull secret(s) | Named in `imagePullSecrets` |
 
@@ -219,6 +229,22 @@ Controlled by `processExporter.enabled: true`.
 
 ---
 
+## Job Metrics Exporter (`deployment-job-metrics-exporter.yaml`)
+
+Controlled by `jobMetricsExporter.enabled: true`.
+
+- Standalone Deployment with `replicas: 1` — a global MongoDB observer, not per-pod. A sidecar would produce duplicate metric series with multiple IAP replicas.
+- Image: `ghcr.io/itential/job-metrics-exporter` (public GHCR, no pull secret needed)
+- Listens on port 9477, exposes `/metrics` and `/healthz`
+- Requires a dedicated `itential-job-metrics-secrets` Kubernetes secret with a **read-only** MongoDB user (separate from the IAP `itential` user which has read/write access)
+- `mongoDatabase` must be set to match `ITENTIAL_MONGO_DB_NAME` (e.g. `"itential-na"`); leaving it empty uses the exporter's built-in default database name
+- When `useTLS: true`: mounts the cert from `certificate.secretName` at `/etc/ssl/platform` and sets TLS env vars; probes use `HTTPS` scheme
+- `service-job-metrics-exporter.yaml` — ClusterIP service on port 9477
+- `podmonitor-job-metrics-exporter.yaml` — PodMonitor for Prometheus scraping (15s interval); sets `scheme: https` + `tlsConfig.insecureSkipVerify: true` when `useTLS: true`
+- Ingress rule added to `ingress.yaml` at hostname `{fullname}-{namespace}-job-metrics.{baseDomain}/metrics` when `jobMetricsExporter.ingressEnabled: true` and `ingress.directAccess.enabled: true`
+
+---
+
 ## Storage (`storage-class.yaml`)
 
 Creates a `StorageClass` when `storageClass.enabled: true`:
@@ -246,6 +272,7 @@ Creates a `StorageClass` when `storageClass.enabled: true`:
 | `resources` | `requests`, `limits` | CPU/memory |
 | `env` | 350+ env vars | MongoDB, Redis, Vault, auth, logging, SNMP |
 | `processExporter` | `enabled`, `image`, `config` | Prometheus sidecar |
+| `jobMetricsExporter` | `enabled`, `ingressEnabled`, `image`, `port`, `mongoSecretName`, `mongoSecretKey`, `mongoDatabase`, `changeStreamEnabled`, `pollingEnabled`, `logLevel`, `logFormat` | Standalone Job Metrics Exporter Deployment |
 | `serviceAccount` | `create`, `name`, `annotations`, `automountServiceAccountToken` | SA creation + cloud IAM federation (IRSA/Workload Identity) |
 | `hostAliases` | list | For Redis Sentinel DNS resolution |
 | `nodeSelector`, `tolerations`, `affinity` | standard k8s scheduling | |
