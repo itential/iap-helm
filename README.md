@@ -34,6 +34,28 @@ helm install iap . -f values.yaml --set image.tag=6.0.4
 | https://charts.jetstack.io | cert-manager | 1.12.3 |
 | https://kubernetes-sigs.github.io/external-dns/ | external-dns | 1.17.0 |
 
+#### Pre-Install / Pre-Upgrade Verification
+
+The requirements described below (secrets, certificates, DNS, and volumes) must all be in place
+before installing or upgrading. The `scripts/precheck.py` helper validates them automatically and
+reports a clear `PASS` / `FAIL` / `WARN` for each assertion, exiting non-zero on any failure so it
+can gate an install in CI.
+
+It is pure Python 3 (standard library only) and shells out to the `kubectl` and `openssl` binaries
+you already have — no `pip install` required. Environment-specific names are read from your values
+file; any value can be overridden with a flag.
+
+```bash
+# Before a first install:
+python3 scripts/precheck.py install -n <your-namespace> -f <your-values-file>
+
+# Before an upgrade (adds PVC and certificate health checks):
+python3 scripts/precheck.py upgrade -n <your-namespace> -f <your-values-file>
+```
+
+See [docs/pre-install-verification.md](docs/pre-install-verification.md) for the full list of checks,
+the flags available, and the manual `kubectl` equivalent of each assertion.
+
 #### Secrets
 
 The chart assumes the following secrets, they are not included in the Chart.
