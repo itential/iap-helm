@@ -173,7 +173,7 @@ certificate:
   # -- Specifies any private key properties
   privateKey: {} # include all required properties, passed to the template as is
   # -- Specifies any key store properties
-  keyStores: {} # include all required properties, passed to the template as is
+  keystores: {} # include all required properties, passed to the template as is
   # -- Specifies any subject fields required
   subject: {} # include all required properties, passed to the template as is
 
