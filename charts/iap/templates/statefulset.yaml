@@ -83,6 +83,39 @@ spec:
             {{- end }}
             )
             
+            TYPES=(
+            {{- range .Values.initAdapterInstaller.repositories }}
+              {{- if kindIs "string" . }}
+              ""
+              {{- else }}
+              {{- if and .type (not (has .type (list "git" "folders"))) }}
+              {{- fail (printf "initAdapterInstaller.repositories: unknown type %q for %s (use git or folders)" .type .url) }}
+              {{- end }}
+              "{{ .type | default "" }}"
+              {{- end }}
+            {{- end }}
+            )
+
+            PATHS=(
+            {{- range .Values.initAdapterInstaller.repositories }}
+              {{- if kindIs "string" . }}
+              ""
+              {{- else }}
+              "{{ .path | default "" }}"
+              {{- end }}
+            {{- end }}
+            )
+
+            SKIP_NPM=(
+            {{- range .Values.initAdapterInstaller.repositories }}
+              {{- if kindIs "string" . }}
+              ""
+              {{- else }}
+              "{{ join " " (.skipNpmInstall | default list) }}"
+              {{- end }}
+            {{- end }}
+            )
+            
             # Execute the script from ConfigMap
             source /scripts/install-adapters.sh
         volumeMounts:

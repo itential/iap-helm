@@ -61,11 +61,22 @@ initAdapterInstaller:
   # Each repository can be:
   # 1. A simple string URL (clones default branch)
   # 2. An object with 'url' and optional 'branch' fields
+  # 3. An object with 'type: folders': one repository that holds many adapter folders (a monorepo).
+  #    Optional 'path' is the directory inside the repository that contains the folders (default: the repository root).
+  #    Every folder with a package.json is installed as /opt/itential/platform/services/custom/<folder>.
+  #    Every folder gets npm install, except folders matching a pattern in the optional 'skipNpmInstall' list
+  #    (shell globs, for example "app-*"). Those are installed as committed, with the node_modules that are in git.
+  #    A folder that is removed from git is removed from the volume.
   repositories:
     # Examples (supports GitLab, GitHub, Bitbucket, and other Git providers):
     # - "https://gitlab.com/itentialopensource/adapters/adapter-example.git"  # Uses default branch
     # - url: "https://github.com/company/adapter-custom.git"
     #   branch: "v1.2.3"  # Clones specific branch/tag
+    # - url: "https://git.example.com/team/iap-adapters.git"
+    #   type: folders
+    #   branch: develop
+    #   path: ""  # optional
+    #   skipNpmInstall: ["app-*"]  # optional
   
 
 # Post-installation test configuration 

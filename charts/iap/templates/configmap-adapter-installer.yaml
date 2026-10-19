@@ -26,9 +26,240 @@ data:
     echo "Running adapter installation on $HOSTNAME..."
     cd /opt/itential/platform/services/custom
     
+    # Working area for "folders" repositories: ownership markers (<folder>.tree), the last installed commit of each
+    # repository and temporary build directories. It lives on the volume so the swap into place is a same-filesystem rename.
+    # It is only created when a "folders" repository is configured.
+    STATE_DIR=".adapter-installer"
+
+    # Prints the commit a branch, tag or HEAD points to on the remote. Annotated tags resolve to their commit.
+    # Returns 1 when the remote cannot be read or the ref does not exist.
+    remote_commit_for() {
+        local url="$1" ref="$2" out commit
+        if [ -z "$ref" ]; then
+            out=$(git ls-remote "$url" HEAD) || return 1
+            commit=$(printf '%s\n' "$out" | head -n 1 | cut -f1)
+        else
+            out=$(git ls-remote "$url" "refs/heads/$ref" "refs/tags/$ref") || return 1
+            commit=$(printf '%s\n' "$out" | awk -F'\t' -v r="refs/tags/$ref^{}" '$2 == r { print $1 }')
+            [ -n "$commit" ] || commit=$(printf '%s\n' "$out" | head -n 1 | cut -f1)
+        fi
+        [ -n "$commit" ] || return 1
+        printf '%s\n' "$commit"
+    }
+
+    has_modules() {
+        [ -d "$1/node_modules" ] && [ -n "$(ls -A "$1/node_modules" 2>/dev/null)" ]
+    }
+
+    # True when folder $1 matches one of the glob patterns in $2 (space separated): its node_modules come from git
+    # and npm install is not run for it. Globbing is only applied to the patterns, never to the file system.
+    skips_npm() {
+        local name="$1" pat
+        local -a pats=()
+        read -r -a pats <<< "$2"
+        for pat in "${pats[@]}"; do
+            # shellcheck disable=SC2254
+            case "$name" in
+                $pat) return 0 ;;
+            esac
+        done
+        return 1
+    }
+    
+    # A folder is complete when it exists and, unless npm install is skipped for it, has its node_modules
+    folder_complete() {
+        if skips_npm "$1" "$2"; then
+            [ -d "$1" ]
+        else
+            has_modules "$1"
+        fi
+    }
+
+    # Names of the folders installed from the repository identified by key ($1)
+    owned_adapters() {
+        local f
+        for f in "$STATE_DIR"/*.tree; do
+            [ -f "$f" ] || continue
+            if [ "$(cut -d' ' -f2 "$f")" = "$1" ]; then
+                basename "$f" .tree
+            fi
+        done
+    }
+
+    # One git repository that holds many adapter/app folders. Each folder is installed as its own directory in custom/.
+    # Usage: install_folders_repo <url> <branch> <path inside the repository> <skipNpmInstall patterns>
+    # Records its own results in SUCCESSFUL_INSTALLS, FAILED_INSTALLS and REMOVED_ADAPTERS.
+    install_folders_repo() {
+        local url="$1" ref="$2" sub="${3#/}" skip="$4" prefix="" key label commit_file work remote commit
+        local entry name tree marker owner tmp old e complete owned
+        local failed=0 found=0 seen=" " clone_args=() ls_args=()
+        sub="${sub%/}"
+        [ -z "$sub" ] || prefix="$sub/"
+        key=$(printf '%s|%s' "$url" "$sub" | cksum | cut -d' ' -f1)
+        label="$(basename "$url" .git)${sub:+/$sub}"
+        commit_file="$STATE_DIR/repo-$key.commit"
+        mkdir -p "$STATE_DIR"
+        # Leftovers from a run that was killed halfway
+        rm -rf "$STATE_DIR"/tmp-* "$STATE_DIR"/old-* "$STATE_DIR"/work-*
+
+        # Quick check: one ls-remote call decides whether anything changed
+        if ! remote=$(remote_commit_for "$url" "$ref"); then
+            if [ -f "$commit_file" ]; then
+                echo "WARNING: cannot read ${ref:-the default branch} of $url, keeping the installed folders"
+                SUCCESSFUL_INSTALLS+=("$label (git unreachable, kept installed folders)")
+            else
+                echo "ERROR: cannot read ${ref:-the default branch} of $url and nothing is installed yet"
+                FAILED_INSTALLS+=("$label (cannot read repository)")
+            fi
+            return 0
+        fi
+
+        if [ -f "$commit_file" ] && [ "$(cat "$commit_file")" = "$remote" ]; then
+            complete=true
+            for owned in $(owned_adapters "$key"); do
+                folder_complete "$owned" "$skip" || complete=false
+            done
+            if [ "$complete" = "true" ]; then
+                echo "Repository $label already installed (commit: ${remote:0:8}), skipping"
+                SUCCESSFUL_INSTALLS+=("$label (already installed)")
+                return 0
+            fi
+            echo "Some folders of $label are missing or incomplete, reconciling"
+        fi
+
+        # Something changed: fetch the commit once, without a checkout
+        work="$STATE_DIR/work-$key"
+        rm -rf "$work"
+        if [ -n "$ref" ]; then clone_args=(--branch "$ref"); fi
+        echo "Fetching $label (${ref:-default branch})..."
+        if ! git clone --quiet --depth 1 --no-checkout "${clone_args[@]}" "$url" "$work"; then
+            echo "ERROR: clone of $url failed, keeping the installed folders"
+            FAILED_INSTALLS+=("$label (clone failed)")
+            rm -rf "$work"
+            return 0
+        fi
+        commit=$(git -C "$work" rev-parse HEAD)
+        if [ -n "$prefix" ]; then ls_args=("$prefix"); fi
+
+        while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            name=$(basename "$entry")
+            if ! printf '%s' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]*$'; then
+                echo "Ignoring folder with an unsupported name: $name"
+                continue
+            fi
+            if ! git -C "$work" cat-file -e "HEAD:$prefix$name/package.json" 2>/dev/null; then
+                echo "Ignoring $name (no package.json)"
+                continue
+            fi
+            found=$((found + 1))
+            seen="$seen$name "
+
+            for e in "${EXPECTED_ADAPTERS[@]}"; do
+                if [ "$e" = "$name" ]; then
+                    echo "ERROR: folder $name is also configured as its own repository"
+                    FAILED_INSTALLS+=("$name (name used by another repositories entry)")
+                    failed=$((failed + 1))
+                    continue 2
+                fi
+            done
+
+            tree=$(git -C "$work" rev-parse "HEAD:$prefix$name")
+            marker="$STATE_DIR/$name.tree"
+            if [ -f "$marker" ]; then
+                owner=$(cut -d' ' -f2 "$marker")
+                if [ "$owner" != "$key" ]; then
+                    echo "ERROR: $name was installed from a different repository entry, remove it manually to take it over"
+                    FAILED_INSTALLS+=("$name (installed from another repository entry)")
+                    failed=$((failed + 1))
+                    continue
+                fi
+                if [ "$(cut -d' ' -f1 "$marker")" = "$tree" ] && folder_complete "$name" "$skip"; then
+                    echo "Keeping $name (unchanged)"
+                    SUCCESSFUL_INSTALLS+=("$name (already installed)")
+                    continue
+                fi
+            fi
+
+            # Build in a temporary directory, then swap into place, so a failed build never damages the installed copy
+            echo "Installing $name from $label..."
+            tmp="$STATE_DIR/tmp-$name"
+            old="$STATE_DIR/old-$name"
+            rm -rf "$tmp" "$old"
+            mkdir -p "$tmp"
+            if ! ( set -o pipefail; git -C "$work" archive "HEAD:$prefix$name" | tar -x -C "$tmp" ); then
+                echo "Failed to extract $name"
+                rm -rf "$tmp"
+                FAILED_INSTALLS+=("$name (extract failed)")
+                failed=$((failed + 1))
+                continue
+            fi
+
+            if skips_npm "$name" "$skip"; then
+                echo "$name matches skipNpmInstall, using the committed node_modules and skipping npm install"
+            else
+                echo "Running npm install for $name..."
+                export NPM_CONFIG_CACHE=/tmp/.npm
+                mkdir -p /tmp/.npm
+                (cd "$tmp" && npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund" "--ignore-scripts")) }} {{ . }}{{- end }} 2>/dev/null) || true
+                if ! has_modules "$tmp"; then
+                    echo "NPM install failed for $name, keeping the previous copy if there is one"
+                    rm -rf "$tmp"
+                    FAILED_INSTALLS+=("$name (npm install failed)")
+                    failed=$((failed + 1))
+                    continue
+                fi
+            fi
+    
+            if [ -d "$name" ]; then mv "$name" "$old"; fi
+            if mv "$tmp" "$name"; then
+                printf '%s %s\n' "$tree" "$key" > "$marker"
+                rm -rf "$old"
+                SUCCESSFUL_INSTALLS+=("$name")
+            else
+                echo "Failed to move $name into place"
+                if [ -d "$old" ]; then mv "$old" "$name"; fi
+                rm -rf "$tmp"
+                FAILED_INSTALLS+=("$name (install failed)")
+                failed=$((failed + 1))
+            fi
+        done < <(git -c core.quotepath=off -C "$work" ls-tree -d --name-only HEAD "${ls_args[@]}")
+
+        if [ "$found" -gt 0 ]; then
+            # Git is the source of truth: folders installed from this repository that are gone from it are removed
+            for owned in $(owned_adapters "$key"); do
+                case "$seen" in
+                    *" $owned "*) ;;
+                    *)
+                        echo "Removing $owned (no longer in the repository)"
+                        rm -rf "$owned" "$STATE_DIR/$owned.tree"
+                        REMOVED_ADAPTERS+=("$owned")
+                        ;;
+                esac
+            done
+        else
+            echo "ERROR: no folders with a package.json found in $label, removing nothing"
+            FAILED_INSTALLS+=("$label (no adapter folders found)")
+            failed=$((failed + 1))
+        fi
+
+        rm -rf "$work"
+        # Only a fully successful run records the commit, otherwise the next start retries
+        if [ "$failed" -eq 0 ]; then
+            printf '%s\n' "$commit" > "$commit_file"
+        else
+            rm -f "$commit_file"
+        fi
+        return 0
+    }
+    
     # Build list of expected adapters from repositories
     EXPECTED_ADAPTERS=()
     for i in "${!REPOS[@]}"; do
+        # "folders" entries hold many adapters, they are not a single adapter name
+        if [ "${TYPES[$i]:-}" = "folders" ]; then
+            continue
+        fi
         REPO_URL="${REPOS[$i]}"
         ADAPTER_NAME=$(basename "$REPO_URL" .git)
         EXPECTED_ADAPTERS+=("$ADAPTER_NAME")
@@ -40,6 +271,10 @@ data:
     for EXISTING_DIR in adapter-*; do
         if [ -d "$EXISTING_DIR" ]; then
             ADAPTER_FOUND=false
+            # Folders installed from a "folders" repository are managed by install_folders_repo
+            if [ -f "$STATE_DIR/$EXISTING_DIR.tree" ]; then
+                ADAPTER_FOUND=true
+            fi
             for EXPECTED_ADAPTER in "${EXPECTED_ADAPTERS[@]}"; do
                 if [ "$EXISTING_DIR" = "$EXPECTED_ADAPTER" ]; then
                     ADAPTER_FOUND=true
@@ -73,8 +308,18 @@ data:
     for i in "${!REPOS[@]}"; do
         REPO_URL="${REPOS[$i]}"
         BRANCH="${BRANCHES[$i]}"
+
+        if [ "${TYPES[$i]:-}" = "folders" ]; then
+            echo "========================================="
+            echo "Processing folders repository: $REPO_URL (branch: ${BRANCH:-default}, path: ${PATHS[$i]:-/})"
+            echo "========================================="
+            install_folders_repo "$REPO_URL" "$BRANCH" "${PATHS[$i]:-}" "${SKIP_NPM[$i]:-}"
+            echo ""
+            continue
+        fi
+
         ADAPTER_NAME=$(basename "$REPO_URL" .git)
-        
+
         echo "========================================="
         echo "Processing adapter: $ADAPTER_NAME"
         echo "Repository URL: $REPO_URL"

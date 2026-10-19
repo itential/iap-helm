@@ -52,7 +52,7 @@ initAdapterInstaller:
 
 ### Repository Configuration
 
-Repositories can be configured in two formats:
+Repositories can be configured in three formats:
 
 #### 1. String Format (Default Branch)
 ```yaml
@@ -80,6 +80,28 @@ repositories:
   - url: "https://bitbucket.org/team/adapter-internal.git"
     branch: "main"
 ```
+
+#### 4. One Repository With Many Adapter Folders (`type: folders`)
+```yaml
+repositories:
+  - url: "https://git.example.com/team/iap-adapters.git"
+    type: folders
+    branch: develop      # optional
+    path: ""             # optional: directory inside the repository that holds the folders
+    skipNpmInstall: []   # optional: glob patterns of folders that are installed as committed, e.g. ["app-*"]
+```
+Every folder (at the repository root, or under `path`) that contains a `package.json` is installed as its own
+directory in `/opt/itential/platform/services/custom/<folder>`.
+
+- Every folder gets `npm install` (with `npmInstallOptions`), except folders matching a glob in `skipNpmInstall` (for example `"app-*"`). Those are installed as committed: their `node_modules` come from git and `npm install` is not run. Note that `npm install` removes packages that are not in a folder's `package.json`, so use `skipNpmInstall` for folders that ship a curated `node_modules`.
+- On a restart, one `git ls-remote` call decides whether anything changed. If not, nothing is fetched.
+- If the commit changed, the commit is fetched once (shallow, no checkout) and each folder is compared by its git tree hash. Only changed folders are rebuilt.
+- A folder is built in a temporary directory and swapped into place. If `npm install` fails, the previously installed copy is kept and the failure is reported.
+- A folder that is removed from git is removed from the volume. Only folders installed from that repository entry are removed, and nothing is removed if no folder is found or git cannot be reached.
+- Folders without `package.json` and hidden folders are ignored. Folder names must match `^[A-Za-z0-9][A-Za-z0-9._-]*$`.
+- A folder name cannot also be used by a single-adapter entry, and a folder installed by one `folders` entry is not taken over by another.
+- The installer keeps its markers and temporary directories in `/opt/itential/platform/services/custom/.adapter-installer`.
+- Size the volume for the checked-out folders plus a temporary copy of the repository during an update.
 
 ### Private Git Repositories
 

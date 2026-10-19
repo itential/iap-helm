@@ -328,3 +328,64 @@ tests:
       - matchRegex:
           path: data["git-askpass.sh"]
           pattern: 'cat /git-credentials/token ;;'
+
+  - it: should contain the folders (monorepo) installer
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: ".*install_folders_repo\\(\\).*"
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*if \[ "\$\{TYPES\[\$i\]:-\}" = "folders" \].*'
+
+  - it: should skip npm install only for folders matching skipNpmInstall
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*if skips_npm "\$name" "\$skip"; then\s+echo "\$name matches skipNpmInstall.*'
+
+  - it: should use the configured npm options for folders
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        npmInstallOptions:
+          - "--production"
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*\(cd "\$tmp" && npm install --production 2>/dev/null\).*'
+
+  - it: should keep folders when git cannot be read and remove only folders owned by the repository
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*cannot read \$\{ref:-the default branch\} of \$url, keeping the installed folders.*'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*Removing \$owned \(no longer in the repository\).*'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*if \[ "\$found" -gt 0 \].*'
+
+  - it: should not clean up folders managed by a folders repository as obsolete adapters
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: '.*if \[ -f "\$STATE_DIR/\$EXISTING_DIR.tree" \].*'

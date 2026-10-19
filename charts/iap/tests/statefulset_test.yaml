@@ -1285,3 +1285,70 @@ tests:
       - notMatchRegex:
           path: spec.template.spec.initContainers[0].args[1]
           pattern: "password|token"
+
+  - it: should add TYPES and PATHS for folders repositories
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - url: "https://example.com/iap-adapters.git"
+            type: folders
+            branch: develop
+            path: adapters
+            skipNpmInstall: ["app-*", "vendored-*"]
+          - "https://example.com/adapter2.git"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*REPOS=\(\s+"https://example.com/iap-adapters.git"\s+"https://example.com/adapter2.git"\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*BRANCHES=\(\s+"develop"\s+""\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*TYPES=\(\s+"folders"\s+""\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*PATHS=\(\s+"adapters"\s+""\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*SKIP_NPM=\(\s+"app-\* vendored-\*"\s+""\s+\).*'
+
+  - it: should fail for an unknown repository type
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - url: "https://example.com/adapters.zip"
+            type: zip
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "unknown type"
