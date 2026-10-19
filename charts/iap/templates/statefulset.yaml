@@ -91,6 +91,18 @@ spec:
             readOnly: true
           - name: "{{ include "iap.fullname" . }}-assets-volume"
             mountPath: "/opt/itential/platform/services/custom"
+          {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+          - name: adapter-git-credentials
+            mountPath: "/git-credentials"
+            readOnly: true
+          {{- end }}
+        {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+        env:
+          - name: GIT_TERMINAL_PROMPT
+            value: "0"
+          - name: GIT_ASKPASS
+            value: "/scripts/git-askpass.sh"
+        {{- end }}
         {{- if .Values.initAdapterInstaller.securityContext }}
         securityContext:
           {{- toYaml .Values.initAdapterInstaller.securityContext | nindent 12 }}
@@ -249,6 +261,12 @@ spec:
           configMap:
             name: {{ include "iap.fullname" . }}-adapter-installer
             defaultMode: 0755
+        {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+        - name: adapter-git-credentials
+          secret:
+            secretName: {{ .Values.initAdapterInstaller.gitCredentials.existingSecret | quote }}
+            defaultMode: 0444
+        {{- end }}
         {{- end }}
         {{- if .Values.useTLS }}
         - name: platform-cert-volume

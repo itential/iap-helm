@@ -195,7 +195,7 @@ Controlled by `initAdapterInstaller.enabled: true` + `mountAdapterVolume: true`.
   - Sets permissions (775, itential:users)
 - Pod restarts automatically when the ConfigMap checksum changes (annotation-based)
 
-Repository list format supports both strings (`"https://repo-url"`) and objects with `url`, `branch`/`tag` fields.
+Repository list format supports both strings (`"https://repo-url"`) and objects with `url`, `branch`/`tag` fields. `initAdapterInstaller.gitCredentials.existingSecret` supplies HTTPS credentials for private repositories.
 
 ---
 

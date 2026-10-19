@@ -1174,3 +1174,114 @@ tests:
             secret:
               secretName: "client-cert-secret"
               optional: true
+
+  - it: should not mount git credentials or set git environment variables by default
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers[0].env
+      - notContains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: adapter-git-credentials
+            mountPath: /git-credentials
+            readOnly: true
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: adapter-git-credentials
+            secret:
+              secretName: adapter-git-credentials
+              defaultMode: 292
+
+  - it: should mount the git credentials Secret and set GIT_ASKPASS when gitCredentials.existingSecret is set
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        gitCredentials:
+          existingSecret: adapter-git-credentials
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: GIT_TERMINAL_PROMPT
+            value: "0"
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: GIT_ASKPASS
+            value: /scripts/git-askpass.sh
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: adapter-git-credentials
+            mountPath: /git-credentials
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: adapter-git-credentials
+            secret:
+              secretName: adapter-git-credentials
+              defaultMode: 292
+
+  - it: should not put the credentials in the pod spec
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        gitCredentials:
+          existingSecret: adapter-git-credentials
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - notMatchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: "password|token"

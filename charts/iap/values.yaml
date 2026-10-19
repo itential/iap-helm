@@ -45,6 +45,18 @@ initAdapterInstaller:
     - "--no-audit"
     - "--no-fund"
     - "--ignore-scripts"
+  # -- Credentials for cloning adapter repositories over HTTPS from a private git server.
+  # Create the Secret in the release namespace, for example:
+  #   kubectl create secret generic adapter-git-credentials --from-literal=username=<user> --from-literal=password=<token>
+  # The Secret is mounted read-only into the init container and handed to git through GIT_ASKPASS (works with the git 2.30 in the default node:18-bullseye image).
+  # The credentials are not written to the adapter volume or to the clone's .git/config.
+  gitCredentials:
+    # -- Name of an existing Secret holding the git credentials. Empty means anonymous clones.
+    existingSecret: ""
+    # -- Key in the Secret that holds the username
+    usernameKey: username
+    # -- Key in the Secret that holds the password or access token
+    passwordKey: password
   # -- List of adapter repositories to install
   # Each repository can be:
   # 1. A simple string URL (clones default branch)

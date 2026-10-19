@@ -284,3 +284,47 @@ tests:
       - matchRegex:
           path: data["install-adapters.sh"]
           pattern: ".*Final directory contents:.*"
+
+  - it: should not contain git-askpass.sh by default
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - notExists:
+          path: data["git-askpass.sh"]
+
+  - it: should contain git-askpass.sh reading the default Secret keys when gitCredentials.existingSecret is set
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        gitCredentials:
+          existingSecret: adapter-git-credentials
+    asserts:
+      - matchRegex:
+          path: data["git-askpass.sh"]
+          pattern: "^#!/bin/sh"
+      - matchRegex:
+          path: data["git-askpass.sh"]
+          pattern: 'Username\*\) cat /git-credentials/username ;;'
+      - matchRegex:
+          path: data["git-askpass.sh"]
+          pattern: '\*\) cat /git-credentials/password ;;'
+
+  - it: should use custom Secret key names in git-askpass.sh
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        gitCredentials:
+          existingSecret: adapter-git-credentials
+          usernameKey: user
+          passwordKey: token
+    asserts:
+      - matchRegex:
+          path: data["git-askpass.sh"]
+          pattern: 'cat /git-credentials/user ;;'
+      - matchRegex:
+          path: data["git-askpass.sh"]
+          pattern: 'cat /git-credentials/token ;;'

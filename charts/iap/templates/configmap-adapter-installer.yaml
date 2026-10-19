@@ -10,6 +10,15 @@ metadata:
     kubernetes.io/description: "ConfigMap containing the adapter installer script for IAP initContainer."
     {{- include "iap.annotations" . | nindent 4 }}
 data:
+  {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+  git-askpass.sh: |
+    #!/bin/sh
+    # Used through GIT_ASKPASS: answers git's username and password prompts from the mounted Secret.
+    case "$1" in
+      Username*) cat /git-credentials/{{ .Values.initAdapterInstaller.gitCredentials.usernameKey }} ;;
+      *) cat /git-credentials/{{ .Values.initAdapterInstaller.gitCredentials.passwordKey }} ;;
+    esac
+  {{- end }}
   install-adapters.sh: |
     #!/bin/bash
     set -e

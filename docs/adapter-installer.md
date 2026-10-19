@@ -81,6 +81,14 @@ repositories:
     branch: "main"
 ```
 
+### Private Git Repositories
+
+Set `initAdapterInstaller.gitCredentials.existingSecret` to a Secret with `username` and `password` keys (HTTPS). It is mounted read-only into the init container and handed to git through `GIT_ASKPASS`. The token is not written to the volume, the pod spec or the logs.
+
+```bash
+kubectl create secret generic adapter-git-credentials --from-literal=username=<user> --from-literal=password=<token>
+```
+
 ### Advanced Configuration
 
 ```yaml
