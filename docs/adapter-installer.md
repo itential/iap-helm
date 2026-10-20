@@ -103,6 +103,67 @@ directory in `/opt/itential/platform/services/custom/<folder>`.
 - The installer keeps its markers and temporary directories in `/opt/itential/platform/services/custom/.adapter-installer`.
 - Size the volume for the checked-out folders plus a temporary copy of the repository during an update.
 
+##### Example repository layout
+
+A repository with the adapter folders at its root (`path` left empty), and `skipNpmInstall: ["app-*"]`:
+
+```
+iap-adapters/                      <- repository root, branch "develop"
+├── .gitignore                     ignored: files are never installed
+├── README.md                      ignored: files are never installed
+├── .github/                       ignored: hidden folder
+├── docs/                          ignored: no package.json
+│   └── notes.md
+├── adapter-email/                 installed, npm install runs
+│   ├── package.json               required, a folder without it is skipped
+│   ├── adapter.js
+│   └── pronghorn.json
+├── adapter-servicenow/            installed, npm install runs
+│   ├── package.json
+│   └── adapter.js
+└── app-artifacts/                 matches "app-*": installed as committed, no npm install
+    ├── package.json
+    └── node_modules/              committed to git and used as is
+        └── ...
+```
+
+Each folder with a `package.json` becomes its own directory on the volume. The installer adds its own working folder next to them:
+
+```
+/opt/itential/platform/services/custom/
+├── adapter-email/
+│   ├── package.json
+│   └── node_modules/              created by npm install
+├── adapter-servicenow/
+│   ├── package.json
+│   └── node_modules/              created by npm install
+├── app-artifacts/
+│   ├── package.json
+│   └── node_modules/              the one committed to git
+└── .adapter-installer/            markers and temporary folders, managed by the installer
+```
+
+If the folders sit in a subdirectory of the repository, set `path` to it. Only the folders under `path` are installed, and everything else in the repository is ignored:
+
+```
+iap-adapters/                      <- repository root
+├── README.md                      ignored
+├── tools/                         ignored: outside path
+└── adapters/                      <- path: "adapters"
+    ├── adapter-email/             installed
+    │   └── package.json
+    └── adapter-servicenow/        installed
+        └── package.json
+```
+
+```yaml
+repositories:
+  - url: "https://git.example.com/team/iap-adapters.git"
+    type: folders
+    branch: develop
+    path: adapters
+```
+
 ### Private Git Repositories
 
 Set `initAdapterInstaller.gitCredentials.existingSecret` to a Secret with `username` and `password` keys (HTTPS). It is mounted read-only into the init container and handed to git through `GIT_ASKPASS`. The token is not written to the volume, the pod spec or the logs.
