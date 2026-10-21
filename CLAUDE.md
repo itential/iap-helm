@@ -195,7 +195,7 @@ Controlled by `initAdapterInstaller.enabled: true` + `mountAdapterVolume: true`.
   - Sets permissions (775, itential:users)
 - Pod restarts automatically when the ConfigMap checksum changes (annotation-based)
 
-Repository list format supports both strings (`"https://repo-url"`) and objects with `url`, `branch`/`tag` fields.
+Repository list format supports both strings (`"https://repo-url"`) and objects with `url`, `branch`/`tag` fields. An object with `type: folders` (optional `path`) installs every folder of one repository that contains a `package.json`: each with `npm install`, except folders matching the optional `skipNpmInstall` globs (installed as committed); folders removed from git are removed from the volume. `initAdapterInstaller.gitCredentials.existingSecret` supplies HTTPS credentials for private repositories.
 
 ---
 

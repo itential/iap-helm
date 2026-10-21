@@ -1174,3 +1174,181 @@ tests:
             secret:
               secretName: "client-cert-secret"
               optional: true
+
+  - it: should not mount git credentials or set git environment variables by default
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers[0].env
+      - notContains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: adapter-git-credentials
+            mountPath: /git-credentials
+            readOnly: true
+      - notContains:
+          path: spec.template.spec.volumes
+          content:
+            name: adapter-git-credentials
+            secret:
+              secretName: adapter-git-credentials
+              defaultMode: 292
+
+  - it: should mount the git credentials Secret and set GIT_ASKPASS when gitCredentials.existingSecret is set
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        gitCredentials:
+          existingSecret: adapter-git-credentials
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: GIT_TERMINAL_PROMPT
+            value: "0"
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: GIT_ASKPASS
+            value: /scripts/git-askpass.sh
+      - contains:
+          path: spec.template.spec.initContainers[0].volumeMounts
+          content:
+            name: adapter-git-credentials
+            mountPath: /git-credentials
+            readOnly: true
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: adapter-git-credentials
+            secret:
+              secretName: adapter-git-credentials
+              defaultMode: 292
+
+  - it: should not put the credentials in the pod spec
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        gitCredentials:
+          existingSecret: adapter-git-credentials
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - notMatchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: "password|token"
+
+  - it: should add TYPES and PATHS for folders repositories
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - url: "https://example.com/iap-adapters.git"
+            type: folders
+            branch: develop
+            path: adapters
+            skipNpmInstall: ["app-*", "vendored-*"]
+          - "https://example.com/adapter2.git"
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*REPOS=\(\s+"https://example.com/iap-adapters.git"\s+"https://example.com/adapter2.git"\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*BRANCHES=\(\s+"develop"\s+""\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*TYPES=\(\s+"folders"\s+""\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*PATHS=\(\s+"adapters"\s+""\s+\).*'
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].args[1]
+          pattern: '.*SKIP_NPM=\(\s+"app-\* vendored-\*"\s+""\s+\).*'
+
+  - it: should fail for an unknown repository type
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+        repositories:
+          - url: "https://example.com/adapters.zip"
+            type: zip
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "unknown type"
