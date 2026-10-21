@@ -18,8 +18,8 @@ spec:
   issuerRef:
     name: {{ .Values.certificate.issuerRef.name }}
     kind: {{ .Values.certificate.issuerRef.kind }}
-    {{- if hasKey (.Values.certificate.issuer) "group" }}
-    group: {{ .Values.certificate.issuer.group }}
+    {{- if hasKey (.Values.certificate.issuerRef) "group" }}
+    group: {{ .Values.certificate.issuerRef.group }}
     {{- end }}
   renewBefore: {{ .Values.certificate.renewBefore }}
   duration: {{ .Values.certificate.duration }}

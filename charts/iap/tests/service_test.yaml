@@ -4,13 +4,14 @@ templates:
 values:
   - ../tests/test-values.yaml
 tests:
-  - it: should render Service with default configuration
+  - it: should render Service with TLS disabled configuration
     set:
       service:
         name: "test-service"
         type: "ClusterIP"
         port: 80
       applicationPort: 8080
+      useTLS: false
       useWebSockets: false
     asserts:
       - hasDocuments:
@@ -163,6 +164,7 @@ tests:
         type: "ClusterIP"
         port: 80
       applicationPort: 80
+      useTLS: false
       useWebSockets: false
     asserts:
       - equal:
@@ -175,13 +177,14 @@ tests:
           path: spec.ports[0].name
           value: "http"
 
-  - it: should handle standard HTTPS port
+  - it: should handle standard port 443 with TLS disabled
     set:
       service:
         name: "https-service"
         type: "ClusterIP"
         port: 443
       applicationPort: 8443
+      useTLS: false
       useWebSockets: false
     asserts:
       - equal:
@@ -230,6 +233,7 @@ tests:
         type: "ClusterIP"
         port: 9999
       applicationPort: 8888
+      useTLS: false
       useWebSockets: false
     asserts:
       - equal:
@@ -398,6 +402,7 @@ tests:
         type: "ClusterIP"
         port: 443
       applicationPort: 3443
+      useTLS: false
       useWebSockets: true
       websocketPort: 8080
     asserts:
@@ -422,3 +427,17 @@ tests:
       - equal:
           path: spec.ports[1].targetPort
           value: 8080
+
+  - it: should name port https when useTLS is true
+    set:
+      service:
+        name: "tls-service"
+        type: "ClusterIP"
+        port: 443
+      applicationPort: 3443
+      useTLS: true
+      useWebSockets: false
+    asserts:
+      - equal:
+          path: spec.ports[0].name
+          value: "https"
