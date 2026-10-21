@@ -48,7 +48,11 @@ iap-helm/
 ├── docs/
 │   ├── helm-tests.md
 │   ├── ingress.md
-│   └── adapter-installer.md
+│   ├── adapter-installer.md
+│   └── pre-install-verification.md
+├── scripts/
+│   ├── verify.py             # pre-install / pre-upgrade environment verification
+│   └── certify.py            # post-install certification report
 └── README.md
 ```
 
@@ -343,6 +347,11 @@ annotations:
 When the same computed value is needed in more than one template, extract it to `_helpers.tpl`.
 
 ---
+
+## Scripts (`scripts/`)
+
+- `verify.py install|upgrade -n <ns> -f <values>`: runs before an install or upgrade. Read-only `kubectl` checks of the secrets, StorageClass and PVCs, and cert-manager objects. Exit code 1 on any failure. Documented in `docs/pre-install-verification.md`.
+- `certify.py --host <url> [--host <url> ...] -n <ns>`: runs after an install. Calls the platform APIs on each node (and reads Kubernetes resources when `kubectl` is available) and writes `iap-certify-<hostname>-<date>.md`. TLS is only verified when `--ca-cert` is given.
 
 ## Docs
 

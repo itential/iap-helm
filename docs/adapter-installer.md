@@ -1,6 +1,6 @@
 # InitContainer Adapter Installer
 
-The InitContainer Adapter Installer is a powerful feature that automatically installs and manages Platform adapters from Itential's open source repositories into the Itential Automation Platform persistent volume. This documentation covers configuration, usage, and troubleshooting.
+The InitContainer Adapter Installer is a powerful feature that automatically installs and manages Platform adapters from git repositories (public, or private with credentials) into the Itential Automation Platform persistent volume. This documentation covers configuration, usage, and troubleshooting.
 
 ## Overview
 
@@ -12,6 +12,8 @@ The adapter installer uses a Kubernetes initContainer that runs before the main 
 - **Automatic Cleanup**: Removes obsolete adapters not in the repositories list
 - **Branch/Tag Support**: Install specific versions or use default branches
 - **Multi-Repository**: Support for multiple adapter repositories
+- **One Repository, Many Adapters**: `type: folders` installs every adapter folder of a single repository and rebuilds only the folders that changed
+- **Private Git Repositories**: HTTPS credentials from a Kubernetes Secret (`gitCredentials`)
 - **Comprehensive Reporting**: Detailed installation and error reporting
 - **Security**: Runs as non-root user with restricted permissions
 - **Automatic Restarts**: Pods restart automatically when repository configuration changes
@@ -377,7 +379,7 @@ initAdapterInstaller:
 **Solution**:
 - Verify repository URL is accessible
 - Check network policies allow outbound HTTPS
-- Ensure repository exists and is public
+- Ensure the repository exists. For a private repository, set `initAdapterInstaller.gitCredentials.existingSecret` (see [Private Git Repositories](#private-git-repositories)). A wrong or expired token shows up in the init container log as `terminal prompts disabled` or `Authentication failed`
 
 #### 4. NPM Install Failures
 **Symptom**: `NPM install failed`

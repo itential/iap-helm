@@ -56,6 +56,30 @@ python3 scripts/verify.py upgrade -n <your-namespace> -f <your-values-file>
 See [docs/pre-install-verification.md](docs/pre-install-verification.md) for the full list of checks,
 the flags available, and the manual `kubectl` equivalent of each assertion.
 
+#### Post-Install Certification
+
+After the install, `scripts/certify.py` connects to one or more Platform nodes, collects health and
+status information from the platform APIs and, when `kubectl` is available, the Kubernetes resources
+in the namespace. It writes a markdown report (`iap-certify-<hostname>-<date>.md` in the current
+directory) that can be shared or archived as installation documentation. It is pure Python 3
+(standard library only).
+
+```bash
+# One URL, for example the load balancer (prompts for the URL when --host is omitted)
+python3 scripts/certify.py --host https://iap.example.com -n <your-namespace>
+
+# Every node, using the direct access hostnames
+python3 scripts/certify.py --host https://iap-prod-0.example.com --host https://iap-prod-1.example.com -n <your-namespace>
+
+# Verify the server certificate against your CA
+python3 scripts/certify.py --host https://iap.example.com --ca-cert /path/to/ca.crt -n <your-namespace>
+```
+
+By default it tries the `admin` user with the default password and prompts if that is rejected. Use
+`--username`, `--token` (an SSO session token) or `--client-id` (OAuth2 client credentials) for other
+logins. The server certificate is only verified when `--ca-cert` is given. Run
+`python3 scripts/certify.py --help` for all options.
+
 #### Secrets
 
 The chart assumes the following secrets, they are not included in the Chart.
@@ -91,6 +115,22 @@ dedicated read-only MongoDB user separate from the IAP application user. Only re
 | Secret Key | Description | Required? |
 |:-----------|:------------|:----------|
 | ITENTIAL_JOB_METRIC_MONGO_URI | MongoDB connection URI for a read-only user scoped to the IAP database. | Yes (when exporter enabled) |
+
+##### adapter-git-credentials
+
+This secret holds the HTTPS username and access token that the adapter installer uses to clone
+adapters from a private git server. Only required when `initAdapterInstaller.gitCredentials.existingSecret`
+is set. Use a read-only token. The key names can be changed with `initAdapterInstaller.gitCredentials.usernameKey`
+and `passwordKey`.
+
+| Secret Key | Description | Required? |
+|:-----------|:------------|:----------|
+| username | The git user name. | Yes (when used) |
+| password | The access token or password. | Yes (when used) |
+
+```bash
+kubectl create secret generic adapter-git-credentials --from-literal=username=<user> --from-literal=password=<token>
+```
 
 ##### iap-ca
 
@@ -170,54 +210,96 @@ then be mounted in the container.
 This will be correctly translated inside the container to the appropriate directories for Platform to
 understand.
 
+### Adapters from git (adapter installer)
+
+Instead of preparing the volume by hand, the chart can install adapters from git. With
+`mountAdapterVolume: true` and `initAdapterInstaller.enabled: true`, an init container clones the
+repositories listed in `initAdapterInstaller.repositories` onto the volume and runs `npm install`
+only when something changed. A repository can be a single adapter, or one repository that holds many
+adapter folders (`type: folders`). Private repositories use the `adapter-git-credentials` secret
+described above.
+
+```yaml
+mountAdapterVolume: true
+initAdapterInstaller:
+  enabled: true
+  gitCredentials:
+    existingSecret: adapter-git-credentials   # only for private repositories
+  repositories:
+    # one adapter, default branch
+    - "https://gitlab.com/itentialopensource/adapters/adapter-email.git"
+    # one adapter, a branch or tag
+    - url: "https://github.com/company/adapter-custom.git"
+      branch: "v1.2.3"
+    # many adapter folders in one repository
+    - url: "https://git.example.com/team/iap-adapters.git"
+      type: folders
+      branch: develop
+      skipNpmInstall: ["app-*"]
+```
+
+See [docs/adapter-installer.md](docs/adapter-installer.md) for the repository layout the installer
+expects, how updates and removals behave, and troubleshooting.
+
 ## Values
 
 | Key | Type | Default | Description |
 |:----|:-----|:--------|:------------|
 | affinity | object | `{}` | Additional affinities |
 | applicationPort | int | `3443` | The port that the application will run on |
-| certManager.enabled | bool | `true` | Toggles the use of cert-manager for managing the TLS certificates. Setting this to false means that creation of the TLS certificates will be manual and outside of the chart. |
+| certManager.enabled | bool | `false` | Toggles installation of cert-manager as a chart dependency. Defaults to false because most enterprise clusters run a shared, cluster-wide cert-manager. Set to true only in dev or test environments where none is available, and install with `--atomic`. |
 | certificate.commonName | string | `"iap.example.com"` | The Common Name to use when creating certificates |
 | certificate.domain | string | `"example.com"` | The domain to use when creating certificates. This will be used by the templates to build a complete list of hosts to enable direct access to individual pods. Some UI actions in Itential require direct access to pods. |
 | certificate.duration | string | `"2160h"` | Specifies how long the certificate should be valid for (its lifetime). |
-| certificate.enabled | bool | `false` | Toggle to use the certificate object or not |
+| certificate.enabled | bool | `true` | Toggle to use the certificate object or not |
 | certificate.secretName | string | `""` | The name of the secret where the TLS certificate will be stored. If empty, defaults to `<Chart.name>-tls-secret` |
 | certificate.issuerRef.kind | string | `"Issuer"` | The issuer type |
 | certificate.issuerRef.name | string | `"iap-ca-issuer"` | The name of the issuer with the CA reference. |
+| certificate.keystores | object | `{}` | Specifies any key store properties. Passed to the Certificate spec as is. |
 | certificate.renewBefore | string | `"48h"` | Specifies how long before the certificate expires that cert-manager should try to renew. |
 | env.ITENTIAL_MONGO_AUTH_ENABLED | string | `"true"` | Instructs the MongoDB driver to use the provided user/password when connecting to MongoDB. |
 | env.ITENTIAL_MONGO_DB_NAME | string | `"itential"` | The name of the MongoDB logical database to connect to. |
 | env.ITENTIAL_MONGO_TLS_ALLOW_INVALID_CERTIFICATES | string | `"false"` | If true, disables the validation checks for TLS certificates on other servers in the cluster and allows the use of invalid or self-signed certificates to connect. |
-| env.ITENTIAL_MONGO_TLS_ENABLED | string | `"false"` | Instruct the MongoDB driver to use TLS protocols when connecting to the database. |
+| env.ITENTIAL_MONGO_TLS_ENABLED | string | `"true"` | Instruct the MongoDB driver to use TLS protocols when connecting to the database. |
 | env.ITENTIAL_MONGO_USER | string | `"itential"` | The username to use when connecting to MongoDB. |
 | env.ITENTIAL_REDIS_HOST | string | `"redis.example.com"` | The hostname of the Redis server. Not used when connecting to Redis Sentinels. |
 | env.ITENTIAL_REDIS_PORT | string | `"6379"` | The port to use when connecting to this Redis instance. |
 | env.ITENTIAL_REDIS_USERNAME | string | `"itential"` | The username to use when connecting to Redis. |
 | external-dns.enabled | bool | `false` | Optional dependency to generate a static external DNS name |
 | image.pullPolicy | string | `"IfNotPresent"` | The image pull policy |
-| image.repository | string | `"497639811223.dkr.ecr.us-east-2.amazonaws.com/itential-platform"` | The image repository |
+| image.repository | string | `nil` | The image repository. Contact Itential to get the correct image repository for your entitlement. |
 | image.tag | string | `nil` | The image tag |
 | imagePullSecrets | list | `[]` | The secrets object used to pull the image from the repo |
-| ingress.annotations | object | `{"alb.ingress.kubernetes.io/backend-protocol":"HTTPS","alb.ingress.kubernetes.io/healthcheck-interval-seconds":"15","alb.ingress.kubernetes.io/healthcheck-path":"/health/status","alb.ingress.kubernetes.io/healthcheck-port":"3443","alb.ingress.kubernetes.io/healthcheck-protocol":"HTTPS","alb.ingress.kubernetes.io/healthcheck-timeout-seconds":"5","alb.ingress.kubernetes.io/healthy-threshold-count":"2","alb.ingress.kubernetes.io/listen-ports":"[{\"HTTPS\": 443}]","alb.ingress.kubernetes.io/load-balancer-attributes":"idle_timeout.timeout_seconds=60","alb.ingress.kubernetes.io/load-balancer-name":"itential-iap-lb","alb.ingress.kubernetes.io/scheme":"internet-facing","alb.ingress.kubernetes.io/success-codes":"200","alb.ingress.kubernetes.io/target-type":"ip","alb.ingress.kubernetes.io/unhealthy-threshold-count":"2"}` | The annotations for this ingress object. These are passed into the template as is and will render as you see here. Itential leveraged AWS ALB but others should work. |
-| ingress.className | string | `"alb"` | The ingress controller class name |
-| ingress.directAccess.baseDomain | string | `"pet-sbx.itential.io"` | The base domain for each Itential pod, used by the templates to create host names. |
+| ingress.annotations | object | `nil` | The annotations for this ingress object. These are passed into the template as is. Itential leveraged AWS ALB but others should work. |
+| ingress.className | string | `""` | The ingress controller class name. If empty, the cluster's default IngressClass (if configured) is used. |
+| ingress.directAccess.baseDomain | string | `"example.com"` | The base domain for each Itential pod, used by the templates to create host names. |
 | ingress.directAccess.enabled | bool | `true` | Enable direct access to all Itential pods. |
 | ingress.directAccess.hostOverride | string | `""` | Optional host override for direct access ingress. When empty, uses iap.fullname + namespace + iterator. When set, uses hostOverride + iterator for hostname generation. |
 | ingress.directAccess.path | string | `"/"` | The path |
 | ingress.enabled | bool | `true` | The ingress object can be disabled and will not be created with this set to false |
 | ingress.loadBalancer.enabled | bool | `true` | Enable a load balancer that will distribute request to all Itential pods |
-| ingress.loadBalancer.host | string | `"iap.pet-sbx.itential.io"` | The Load balancer host name |
+| ingress.loadBalancer.host | string | `"iap.example.com"` | The Load balancer host name |
 | ingress.loadBalancer.path | string | `"/"` | The path |
 | ingress.name | string | `""` | The name of this Kubernetes ingress object. Defaults to `<fullname>-ingress` when not set. |
 | ingress.pathType | string | `"Prefix"` | The ingress controller path type |
-| issuer.caSecretName | string | `nil` | The CA secret to be used by this issuer when creating TLS certificates. |
+| initAdapterInstaller.enabled | bool | `false` | Enable the init container that installs adapters from git onto the persistent volume. Only works when `mountAdapterVolume` is true. |
+| initAdapterInstaller.gitCredentials.existingSecret | string | `""` | Name of an existing Secret holding the git credentials (HTTPS). Empty means anonymous clones. |
+| initAdapterInstaller.gitCredentials.passwordKey | string | `"password"` | Key in the Secret that holds the password or access token |
+| initAdapterInstaller.gitCredentials.usernameKey | string | `"username"` | Key in the Secret that holds the username |
+| initAdapterInstaller.image.pullPolicy | string | `"IfNotPresent"` | The image pull policy for the adapter installer init container |
+| initAdapterInstaller.image.repository | string | `"node"` | The repository for the adapter installer init container image |
+| initAdapterInstaller.image.tag | string | `"18-bullseye"` | The tag for the adapter installer init container image |
+| initAdapterInstaller.npmInstallOptions | list | `["--silent","--no-audit","--no-fund","--ignore-scripts"]` | npm install options used when installing adapter dependencies |
+| initAdapterInstaller.repositories | list | `nil` | Adapter repositories to install. Each entry is a URL string, an object with `url` and optional `branch`, or an object with `type: folders` (one repository with many adapter folders) and optional `branch`, `path` and `skipNpmInstall`. See docs/adapter-installer.md. |
+| initAdapterInstaller.securityContext | object | `{"allowPrivilegeEscalation":false,"runAsGroup":1001,"runAsNonRoot":true,"runAsUser":1001}` | Security context for the init container |
+| issuer.caSecretName | string | `"someSecretName"` | The CA secret to be used by this issuer when creating TLS certificates. |
 | issuer.enabled | bool | `true` | Toggle to use the issuer object or not |
 | issuer.name | string | `"iap-ca-issuer"` | The name of this issuer. |
 | mountAdapterVolume | bool | `false` | Toggle a volume mount which contains adapter code. When this is set to false it is assumed that all adapters will be layered into the Itential provided container. |
 | mountLogVolume | bool | `false` | Toggle a volume with will contain log files. Not required if log data is being captured from Stdout. |
 | nodeSelector | object | `{}` | Additional nodeSelectors |
-| persistentVolumeClaims.assetClaim | object | `{"storage":"10Gi"}` | This represents the claim for the persistence for the adapters and other custom applications that may have been developed by the customer. |
-| persistentVolumeClaims.assetClaim.storage | string | `"10Gi"` | The requested amount of storage |
+| persistentVolumeClaims.assetClaim | object | `{"storage":"20Gi"}` | This represents the claim for the persistence for the adapters and other custom applications that may have been developed by the customer. |
+| persistentVolumeClaims.assetClaim.storage | string | `"20Gi"` | The requested amount of storage |
 | persistentVolumeClaims.enabled | bool | `true` | Toggle the use of persistentVolumeClaims |
 | persistentVolumeClaims.logClaim | object | `{"storage":"10Gi"}` | This represents the claim for the persistence for the log files created and written to by the Platform application. |
 | persistentVolumeClaims.logClaim.storage | string | `"10Gi"` | The requested amount of storage |
@@ -234,9 +316,10 @@ understand.
 | jobMetricsExporter.mongoDatabase | string | `""` | MongoDB database name. Must match `ITENTIAL_MONGO_DB_NAME`. When empty the exporter uses its built-in default. |
 | jobMetricsExporter.changeStreamEnabled | bool | `true` | Use MongoDB change streams for real-time job tracking |
 | jobMetricsExporter.pollingEnabled | bool | `false` | Fall back to polling when change streams are unavailable |
+| jobMetricsExporter.pollingInterval | string | `"60s"` | Polling interval used when `pollingEnabled` is true |
 | jobMetricsExporter.logLevel | string | `"info"` | Log level for the exporter (`debug`, `info`, `warn`, `error`) |
 | jobMetricsExporter.logFormat | string | `"json"` | Log format for the exporter (`json`, `text`) |
-| processExporter.enabled | bool | `true` | Toggle to enable the process exporter sidecar container |
+| processExporter.enabled | bool | `false` | Toggle to enable the process exporter sidecar container |
 | processExporter.image.repository | string | `"ncabatoff/process-exporter"` | The process exporter image repository |
 | processExporter.image.tag | string | `"latest"` | The process exporter image tag |
 | processExporter.port | int | `9256` | Process exporter metrics port |
@@ -250,7 +333,7 @@ understand.
 | service.port | int | `443` | The port that this service object is listening on. |
 | service.type | string | `"ClusterIP"` | The service type. |
 | storageClass.enabled | bool | `true` | Toggle the use of storageClass |
-| storageClass.name | string | `"iap-ebs-gp3"` | The name of the storageClass |
+| storageClass.name | string | `"example-storage-class"` | The name of the storageClass |
 | storageClass.parameters | string | `nil` | Key-value pairs passed to the provisioner |
 | storageClass.provisioner | string | `""` | Specifies which volume plugin provisions the storage |
 | storageClass.reclaimPolicy | string | `"Retain"` | What happens to PersistentVolumes when released. Itential recommends "retain". |
