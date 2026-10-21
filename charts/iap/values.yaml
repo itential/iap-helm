@@ -162,6 +162,8 @@ certificate:
     name: iap-ca-issuer
     # -- The issuer type
     kind: Issuer
+    # -- The API group of the issuer. Leave empty for built-in cert-manager issuers; set for external issuers (e.g. awspca.cert-manager.io).
+    group: ""
   # -- Specifies how long before the certificate expires that cert-manager should try to renew.
   renewBefore: 48h
   # -- Specifies how long the certificate should be valid for (its lifetime).

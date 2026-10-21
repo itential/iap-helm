@@ -1,11 +1,11 @@
-# Helm chart for Itential Automation Platform
+# Helm chart for Itential Platform
 
-This repo contains helm charts for running Itential Automation Platform in Kubernetes. Requires 
+This repo contains helm charts for running Itential Platform in Kubernetes. Requires 
 Helm version `v3.15.0`.
 
-## Itential Automation Platform (IAP)
+## Itential Platform
 
-The chart will not install the Redis and MongoDB dependencies of the IAP application. The chart
+The chart will not install the Redis and MongoDB dependencies of the Platform application. The chart
 assumes that those are running, configured, and bootstrapped with all necessary data. The
 application is installed using a Kubernetes Statefulset. It also includes persistent volume claims,
 ingress, and other Kubernetes objects suitable to run the application.
@@ -15,13 +15,13 @@ versions.
 
 ### Usage
 
-This will install IAP according to how its configured in the values.yaml file ("latest").
+This will install Platform according to how its configured in the values.yaml file ("latest").
 
 ```bash
 helm install iap . -f values.yaml
 ```
 
-This will install IAP with the "6.0.4" image.
+This will install Platform with the "6.0.4" image.
 
 ```bash
 helm install iap . -f values.yaml --set image.tag=6.0.4
@@ -33,6 +33,28 @@ helm install iap . -f values.yaml --set image.tag=6.0.4
 |:-----------|:-----|:--------|
 | https://charts.jetstack.io | cert-manager | 1.12.3 |
 | https://kubernetes-sigs.github.io/external-dns/ | external-dns | 1.17.0 |
+
+#### Pre-Install / Pre-Upgrade Verification
+
+The requirements described below (secrets, certificates, DNS, and volumes) must all be in place
+before installing or upgrading. The `scripts/precheck.py` helper validates them automatically and
+reports a clear `PASS` / `FAIL` / `WARN` for each assertion, exiting non-zero on any failure so it
+can gate an install in CI.
+
+It is pure Python 3 (standard library only) and shells out to the `kubectl` and `openssl` binaries
+you already have — no `pip install` required. Environment-specific names are read from your values
+file; any value can be overridden with a flag.
+
+```bash
+# Before a first install:
+python3 scripts/precheck.py install -n <your-namespace> -f <your-values-file>
+
+# Before an upgrade (adds PVC and certificate health checks):
+python3 scripts/precheck.py upgrade -n <your-namespace> -f <your-values-file>
+```
+
+See [docs/pre-install-verification.md](docs/pre-install-verification.md) for the full list of checks,
+the flags available, and the manual `kubectl` equivalent of each assertion.
 
 #### Secrets
 
@@ -126,13 +148,13 @@ For more information see the [ExternalDNS project](https://github.com/kubernetes
 
 | Name | Type | Description |
 |:-----|:-----|:------------|
-| iap-logs-volume | Persistent Volume Claim | A persistent volume claim to mount a directory to write IAP log files to |
+| iap-logs-volume | Persistent Volume Claim | A persistent volume claim to mount a directory to write Platform log files to |
 | iap-asset-volume | Persistent Volume Claim | A persistent volume claim to mount a directory that includes adapters and apps |
 
 ### How to construct the iap-asset-volume
 
 This volume is intended to store the applications and adapters unique to a customer. Its contents
-will reflect a customer's unique usage of IAP and contain all of the adapters and custom
+will reflect a customer's unique usage of Platform and contain all of the adapters and custom
 applications required. There is an expectation in the container of the structure of the files in
 this volume. All adapters and applications can be added into the same parent directory that will
 then be mounted in the container.
@@ -145,7 +167,7 @@ then be mounted in the container.
 └── custom-application2/
 ```
 
-This will be correctly translated inside the container to the appropriate directories for IAP to
+This will be correctly translated inside the container to the appropriate directories for Platform to
 understand.
 
 ## Values
@@ -197,7 +219,7 @@ understand.
 | persistentVolumeClaims.assetClaim | object | `{"storage":"10Gi"}` | This represents the claim for the persistence for the adapters and other custom applications that may have been developed by the customer. |
 | persistentVolumeClaims.assetClaim.storage | string | `"10Gi"` | The requested amount of storage |
 | persistentVolumeClaims.enabled | bool | `true` | Toggle the use of persistentVolumeClaims |
-| persistentVolumeClaims.logClaim | object | `{"storage":"10Gi"}` | This represents the claim for the persistence for the log files created and written to by the IAP application. |
+| persistentVolumeClaims.logClaim | object | `{"storage":"10Gi"}` | This represents the claim for the persistence for the log files created and written to by the Platform application. |
 | persistentVolumeClaims.logClaim.storage | string | `"10Gi"` | The requested amount of storage |
 | podAnnotations | object | `{}` | Additional pod annotations |
 | podLabels | object | `{}` | Additional pod labels |
