@@ -440,6 +440,18 @@ When `processExporter.enabled` is `true`, direct access routes automatically inc
 
 This allows monitoring systems to scrape metrics from individual pod instances.
 
+## Job Metrics Exporter Integration
+
+When `jobMetricsExporter.enabled`, `jobMetricsExporter.ingressEnabled` and `ingress.directAccess.enabled` are all `true`, the Ingress gets one more rule for the exporter:
+
+- **Host**: `<fullname>-<namespace>-job-metrics.<baseDomain>` (the same naming convention as direct access, using `ingress.directAccess.baseDomain`)
+- **Path**: `/metrics`
+- **Backend**: the `<fullname>-job-metrics-exporter` Service, port `job-metrics` (default 9477)
+
+The exporter is one Deployment for the whole release, not one per pod, so there is a single host rather than one per replica.
+
+> **Note:** The certificate's automatically generated hostname list does not include this host. When using TLS, provide the complete list yourself with `certificate.dnsNames` (a manual list replaces the generated one) and include this host.
+
 ## Troubleshooting
 
 ### Common Issues
