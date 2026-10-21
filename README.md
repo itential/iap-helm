@@ -37,7 +37,7 @@ helm install iap . -f values.yaml --set image.tag=6.0.4
 #### Pre-Install / Pre-Upgrade Verification
 
 The requirements described below (secrets, certificates, DNS, and volumes) must all be in place
-before installing or upgrading. The `scripts/precheck.py` helper validates them automatically and
+before installing or upgrading. The `scripts/verify.py` helper validates them automatically and
 reports a clear `PASS` / `FAIL` / `WARN` for each assertion, exiting non-zero on any failure so it
 can gate an install in CI.
 
@@ -47,10 +47,10 @@ file; any value can be overridden with a flag.
 
 ```bash
 # Before a first install:
-python3 scripts/precheck.py install -n <your-namespace> -f <your-values-file>
+python3 scripts/verify.py install -n <your-namespace> -f <your-values-file>
 
 # Before an upgrade (adds PVC and certificate health checks):
-python3 scripts/precheck.py upgrade -n <your-namespace> -f <your-values-file>
+python3 scripts/verify.py upgrade -n <your-namespace> -f <your-values-file>
 ```
 
 See [docs/pre-install-verification.md](docs/pre-install-verification.md) for the full list of checks,

@@ -14,11 +14,11 @@ Design goals:
                  one is supplied. Any value can be overridden with a flag.
 
 Usage:
-    python3 scripts/precheck.py install -n my-namespace -f values-prod.yaml
-    python3 scripts/precheck.py upgrade -n my-namespace -f values-prod.yaml
+    python3 scripts/verify.py install -n my-namespace -f values-prod.yaml
+    python3 scripts/verify.py upgrade -n my-namespace -f values-prod.yaml
 
     # Without a values file, supply the names explicitly:
-    python3 scripts/precheck.py install -n my-namespace \\
+    python3 scripts/verify.py install -n my-namespace \\
         --storage-class longhorn --issuer iap-ca-issuer --ca-secret itential-ca
 
 Exit code is 0 when every assertion passes, 1 otherwise -- suitable for
@@ -571,7 +571,7 @@ def run_self_test() -> int:
     naming derived from it. If `_helpers.tpl` or the StatefulSet volume claim
     templates change, these assertions should be updated in lockstep.
 
-    Run with:  python3 scripts/precheck.py --self-test
+    Run with:  python3 scripts/verify.py --self-test
     """
     failures: list[str] = []
 
