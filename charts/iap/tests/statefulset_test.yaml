@@ -1352,3 +1352,174 @@ tests:
     asserts:
       - failedTemplate:
           errorPattern: "unknown type"
+
+  - it: should render initAdapterInstaller.env as environment variables on the init container
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        env:
+          HTTPS_PROXY: "http://proxy.example.com:3128"
+          https_proxy: "http://proxy.example.com:3128"
+          NO_PROXY: ".svc,.cluster.local,10.0.0.0/8"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: HTTPS_PROXY
+            value: "http://proxy.example.com:3128"
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: https_proxy
+            value: "http://proxy.example.com:3128"
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: NO_PROXY
+            value: ".svc,.cluster.local,10.0.0.0/8"
+      - lengthEqual:
+          path: spec.template.spec.initContainers[0].env
+          count: 3
+
+  - it: should render env together with the git credentials variables
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        gitCredentials:
+          existingSecret: adapter-git-credentials
+        env:
+          HTTPS_PROXY: "http://proxy.example.com:3128"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: HTTPS_PROXY
+            value: "http://proxy.example.com:3128"
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: GIT_ASKPASS
+            value: /scripts/git-askpass.sh
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: GIT_TERMINAL_PROMPT
+            value: "0"
+      - lengthEqual:
+          path: spec.template.spec.initContainers[0].env
+          count: 3
+
+  - it: should quote numeric env values as strings
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        env:
+          SOME_PORT: 3128
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - contains:
+          path: spec.template.spec.initContainers[0].env
+          content:
+            name: SOME_PORT
+            value: "3128"
+
+  - it: should not set initAdapterInstaller.env on the Itential Platform container
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        env:
+          HTTPS_PROXY: "http://proxy.example.com:3128"
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HTTPS_PROXY
+            value: "http://proxy.example.com:3128"
+
+  - it: should not render an env block on the init container when env is empty and no credentials are set
+    set:
+      statefulset.enabled: true
+      mountAdapterVolume: true
+      replicaCount: 1
+      image:
+        repository: "test/app"
+        tag: "v1.0.0"
+      service:
+        port: 80
+      applicationPort: 8080
+      useTLS: false
+      persistentVolumeClaims:
+        enabled: true
+      processExporter:
+        enabled: false
+      initAdapterInstaller:
+        enabled: true
+        env: {}
+        repositories:
+          - "https://example.com/adapter.git"
+    asserts:
+      - notExists:
+          path: spec.template.spec.initContainers[0].env

@@ -232,6 +232,30 @@ npmInstallOptions:
   - "--ignore-scripts"
 ```
 
+### Environment Variables (for example an HTTP proxy)
+
+`initAdapterInstaller.env` is a map of environment variable names to values that is set on the installer init container. Use it when git or npm must go through an HTTP proxy:
+
+```yaml
+initAdapterInstaller:
+  enabled: true
+  env:
+    HTTP_PROXY: "http://proxy.example.com:3128"
+    http_proxy: "http://proxy.example.com:3128"
+    HTTPS_PROXY: "http://proxy.example.com:3128"
+    https_proxy: "http://proxy.example.com:3128"
+    NO_PROXY: ".svc,.cluster.local,10.0.0.0/8,git.internal.example.com"
+    no_proxy: ".svc,.cluster.local,10.0.0.0/8,git.internal.example.com"
+```
+
+- **Set both the upper and lower case names.** Git reads proxy settings through libcurl, which ignores an upper case `HTTP_PROXY` and only honors a lower case `http_proxy` for plain `http://` URLs. `HTTPS_PROXY` and `NO_PROXY` work in either case.
+- **List internal hosts in `NO_PROXY`.** Include `.svc`, `.cluster.local`, your cluster's address ranges and any internal git server, or those requests go to the proxy.
+- **npm uses the same variables**, so `npm install` also reaches the registry through the proxy.
+- The variables are set on the init container only. To set variables for the Itential Platform container use the top level `env`.
+- Do not set `GIT_ASKPASS` or `GIT_TERMINAL_PROMPT` here. The chart sets them when `gitCredentials` is used.
+- Changing `env` changes the pod template, so the pods restart.
+- A proxy that inspects TLS needs its CA certificate trusted by git and npm (`GIT_SSL_CAINFO`, `NODE_EXTRA_CA_CERTS`). Mounting a CA bundle into the init container is not supported yet.
+
 ## How It Works
 
 ### Installation Process

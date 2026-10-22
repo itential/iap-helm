@@ -238,8 +238,9 @@ initAdapterInstaller:
       skipNpmInstall: ["app-*"]
 ```
 
-See [docs/adapter-installer.md](docs/adapter-installer.md) for the repository layout the installer
-expects, how updates and removals behave, and troubleshooting.
+If the installer must reach git and the npm registry through an HTTP proxy, set the proxy variables
+with `initAdapterInstaller.env`. See [docs/adapter-installer.md](docs/adapter-installer.md) for that, for
+the repository layout the installer expects, how updates and removals behave, and troubleshooting.
 
 ## Values
 
@@ -283,6 +284,7 @@ expects, how updates and removals behave, and troubleshooting.
 | ingress.name | string | `""` | The name of this Kubernetes ingress object. Defaults to `<fullname>-ingress` when not set. |
 | ingress.pathType | string | `"Prefix"` | The ingress controller path type |
 | initAdapterInstaller.enabled | bool | `false` | Enable the init container that installs adapters from git onto the persistent volume. Only works when `mountAdapterVolume` is true. |
+| initAdapterInstaller.env | object | `{}` | Extra environment variables for the adapter installer init container, as a map of name to value (for example `HTTPS_PROXY` and `NO_PROXY`). See docs/adapter-installer.md. |
 | initAdapterInstaller.gitCredentials.existingSecret | string | `""` | Name of an existing Secret holding the git credentials (HTTPS). Empty means anonymous clones. |
 | initAdapterInstaller.gitCredentials.passwordKey | string | `"password"` | Key in the Secret that holds the password or access token |
 | initAdapterInstaller.gitCredentials.usernameKey | string | `"username"` | Key in the Secret that holds the username |
