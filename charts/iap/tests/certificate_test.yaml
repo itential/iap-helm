@@ -343,3 +343,26 @@ tests:
       - equal:
           path: metadata.annotations["foo"]
           value: bar
+
+  - it: should render keystores from values.certificate.keystores
+    set:
+      certificate.enabled: true
+      certificate.issuerRef.name: "test-issuer"
+      certificate.issuerRef.kind: "ClusterIssuer"
+      certificate.commonName: "test.com"
+      certificate.domain: "test.com"
+      certificate.renewBefore: "720h"
+      certificate.duration: "2160h"
+      certificate.keystores:
+        jks:
+          create: true
+          passwordSecretRef:
+            name: jks-password
+            key: password
+    asserts:
+      - equal:
+          path: spec.keystores.jks.create
+          value: true
+      - equal:
+          path: spec.keystores.jks.passwordSecretRef.name
+          value: jks-password

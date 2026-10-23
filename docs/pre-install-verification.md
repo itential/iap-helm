@@ -3,17 +3,17 @@
 Before running `helm install` or `helm upgrade`, every assertion in this document must pass.
 A failing assertion means the environment is not ready and the install/upgrade will likely fail or produce a broken deployment.
 
-The companion script `scripts/precheck.py` encodes these same checks as automated
+The companion script `scripts/verify.py` encodes these same checks as automated
 pass/fail. It is pure Python 3 (standard library only) and shells out to the `kubectl`
 and `openssl` binaries you already have — no `pip install` required, and it runs on
 Linux, macOS, and Windows.
 
 ```bash
 # Before a first install:
-python3 scripts/precheck.py install -n <your-namespace> -f <your-values-file>
+python3 scripts/verify.py install -n <your-namespace> -f <your-values-file>
 
 # Before an upgrade (install checks + PVC/certificate health):
-python3 scripts/precheck.py upgrade -n <your-namespace> -f <your-values-file>
+python3 scripts/verify.py upgrade -n <your-namespace> -f <your-values-file>
 ```
 
 Environment-specific names (StorageClass, issuer, CA secret, image pull secret, etc.)
@@ -22,7 +22,7 @@ are read from the values file you pass with `-f`. Reading the values file needs
 installed, or you prefer not to pass a values file, supply the names with flags instead:
 
 ```bash
-python3 scripts/precheck.py install -n <your-namespace> \
+python3 scripts/verify.py install -n <your-namespace> \
   --release <helm-release-name> \
   --storage-class <storageClass.name> \
   --issuer <certificate.issuerRef.name> --issuer-kind ClusterIssuer \
@@ -32,14 +32,14 @@ python3 scripts/precheck.py install -n <your-namespace> \
 
 Any flag overrides the corresponding value read from the file. A check whose name
 cannot be resolved from either the values file or a flag is reported as `WARN` and
-skipped rather than failing the run. Run `python3 scripts/precheck.py --help` for the
+skipped rather than failing the run. Run `python3 scripts/verify.py --help` for the
 full flag list. Any `FAIL` exits with code 1, so the script can gate an install in CI.
 
 To sanity-check the script itself — including the resource-name derivation it relies on —
 without a cluster, run its built-in self-test (exits non-zero if any assertion fails):
 
 ```bash
-python3 scripts/precheck.py --self-test
+python3 scripts/verify.py --self-test
 ```
 
 > **Example environment used in the assertions below:** namespace `md`, values file

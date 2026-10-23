@@ -1520,6 +1520,127 @@ tests:
           path: spec.rules[0].http.paths[0].path
           value: /
 
+### Job Metrics Exporter Ingress Tests
+  - it: should render job-metrics-exporter rule when all conditions met
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      jobMetricsExporter:
+        enabled: true
+        ingressEnabled: true
+      service:
+        port: 443
+      replicaCount: 0
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 1
+      - equal:
+          path: spec.rules[0].host
+          value: RELEASE-NAME-iap-NAMESPACE-job-metrics.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /metrics
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: Prefix
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: RELEASE-NAME-iap-job-metrics-exporter
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.name
+          value: job-metrics
+
+  - it: should not render job-metrics-exporter rule when jobMetricsExporter disabled
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      jobMetricsExporter:
+        enabled: false
+        ingressEnabled: true
+      service:
+        port: 443
+      replicaCount: 0
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 0
+
+  - it: should not render job-metrics-exporter rule when ingressEnabled false
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      jobMetricsExporter:
+        enabled: true
+        ingressEnabled: false
+      service:
+        port: 443
+      replicaCount: 0
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 0
+
+  - it: should not render job-metrics-exporter rule when directAccess disabled
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: false
+      jobMetricsExporter:
+        enabled: true
+        ingressEnabled: true
+      service:
+        port: 443
+      replicaCount: 1
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 0
+
+  - it: should append job-metrics-exporter rule after direct access rules
+    set:
+      ingress:
+        enabled: true
+        loadBalancer:
+          enabled: false
+        directAccess:
+          enabled: true
+          baseDomain: example.com
+      jobMetricsExporter:
+        enabled: true
+        ingressEnabled: true
+      service:
+        port: 443
+      replicaCount: 2
+    asserts:
+      - lengthEqual:
+          path: spec.rules
+          count: 3
+      - equal:
+          path: spec.rules[2].host
+          value: RELEASE-NAME-iap-NAMESPACE-job-metrics.example.com
+      - equal:
+          path: spec.rules[2].http.paths[0].path
+          value: /metrics
+
   - it: should include metrics path for all replicas when processExporter enabled and ingressEnabled true
     set:
       ingress:

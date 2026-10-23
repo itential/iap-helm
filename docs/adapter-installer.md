@@ -1,6 +1,6 @@
 # InitContainer Adapter Installer
 
-The InitContainer Adapter Installer is a powerful feature that automatically installs and manages Platform adapters from Itential's open source repositories into the Itential Automation Platform persistent volume. This documentation covers configuration, usage, and troubleshooting.
+The InitContainer Adapter Installer is a powerful feature that automatically installs and manages Platform adapters from git repositories (public, or private with credentials) into the Itential Automation Platform persistent volume. This documentation covers configuration, usage, and troubleshooting.
 
 ## Overview
 
@@ -10,8 +10,11 @@ The adapter installer uses a Kubernetes initContainer that runs before the main 
 
 - **Smart Version Detection**: Only reinstalls adapters when versions change
 - **Automatic Cleanup**: Removes obsolete adapters not in the repositories list
+- **Keeps Installed Adapters When Git Is Unreachable**: An expired token, a network problem or a git host outage does not remove an adapter that is already installed
 - **Branch/Tag Support**: Install specific versions or use default branches
 - **Multi-Repository**: Support for multiple adapter repositories
+- **One Repository, Many Adapters**: `type: folders` installs every adapter folder of a single repository and rebuilds only the folders that changed
+- **Private Git Repositories**: HTTPS credentials from a Kubernetes Secret (`gitCredentials`)
 - **Comprehensive Reporting**: Detailed installation and error reporting
 - **Security**: Runs as non-root user with restricted permissions
 - **Automatic Restarts**: Pods restart automatically when repository configuration changes
@@ -52,7 +55,7 @@ initAdapterInstaller:
 
 ### Repository Configuration
 
-Repositories can be configured in two formats:
+Repositories can be configured in three formats:
 
 #### 1. String Format (Default Branch)
 ```yaml
@@ -79,6 +82,97 @@ repositories:
   # Bitbucket
   - url: "https://bitbucket.org/team/adapter-internal.git"
     branch: "main"
+```
+
+#### 4. One Repository With Many Adapter Folders (`type: folders`)
+```yaml
+repositories:
+  - url: "https://git.example.com/team/iap-adapters.git"
+    type: folders
+    branch: develop      # optional
+    path: ""             # optional: directory inside the repository that holds the folders
+    skipNpmInstall: []   # optional: glob patterns of folders that are installed as committed, e.g. ["app-*"]
+```
+Every folder (at the repository root, or under `path`) that contains a `package.json` is installed as its own
+directory in `/opt/itential/platform/services/custom/<folder>`.
+
+- Every folder gets `npm install` (with `npmInstallOptions`), except folders matching a glob in `skipNpmInstall` (for example `"app-*"`). Those are installed as committed: their `node_modules` come from git and `npm install` is not run. Note that `npm install` removes packages that are not in a folder's `package.json`, so use `skipNpmInstall` for folders that ship a curated `node_modules`.
+- On a restart, one `git ls-remote` call decides whether anything changed. If not, nothing is fetched.
+- If the commit changed, the commit is fetched once (shallow, no checkout) and each folder is compared by its git tree hash. Only changed folders are rebuilt.
+- A folder is built in a temporary directory and swapped into place. If `npm install` fails, the previously installed copy is kept and the failure is reported.
+- A folder that is removed from git is removed from the volume. Only folders installed from that repository entry are removed, and nothing is removed if no folder is found or git cannot be reached.
+- Folders without `package.json` and hidden folders are ignored. Folder names must match `^[A-Za-z0-9][A-Za-z0-9._-]*$`.
+- A folder name cannot also be used by a single-adapter entry, and a folder installed by one `folders` entry is not taken over by another.
+- The installer keeps its markers and temporary directories in `/opt/itential/platform/services/custom/.adapter-installer`.
+- Size the volume for the checked-out folders plus a temporary copy of the repository during an update.
+
+##### Example repository layout
+
+A repository with the adapter folders at its root (`path` left empty), and `skipNpmInstall: ["app-*"]`:
+
+```
+iap-adapters/                      <- repository root, branch "develop"
+├── .gitignore                     ignored: files are never installed
+├── README.md                      ignored: files are never installed
+├── .github/                       ignored: hidden folder
+├── docs/                          ignored: no package.json
+│   └── notes.md
+├── adapter-email/                 installed, npm install runs
+│   ├── package.json               required, a folder without it is skipped
+│   ├── adapter.js
+│   └── pronghorn.json
+├── adapter-servicenow/            installed, npm install runs
+│   ├── package.json
+│   └── adapter.js
+└── app-artifacts/                 matches "app-*": installed as committed, no npm install
+    ├── package.json
+    └── node_modules/              committed to git and used as is
+        └── ...
+```
+
+Each folder with a `package.json` becomes its own directory on the volume. The installer adds its own working folder next to them:
+
+```
+/opt/itential/platform/services/custom/
+├── adapter-email/
+│   ├── package.json
+│   └── node_modules/              created by npm install
+├── adapter-servicenow/
+│   ├── package.json
+│   └── node_modules/              created by npm install
+├── app-artifacts/
+│   ├── package.json
+│   └── node_modules/              the one committed to git
+└── .adapter-installer/            markers and temporary folders, managed by the installer
+```
+
+If the folders sit in a subdirectory of the repository, set `path` to it. Only the folders under `path` are installed, and everything else in the repository is ignored:
+
+```
+iap-adapters/                      <- repository root
+├── README.md                      ignored
+├── tools/                         ignored: outside path
+└── adapters/                      <- path: "adapters"
+    ├── adapter-email/             installed
+    │   └── package.json
+    └── adapter-servicenow/        installed
+        └── package.json
+```
+
+```yaml
+repositories:
+  - url: "https://git.example.com/team/iap-adapters.git"
+    type: folders
+    branch: develop
+    path: adapters
+```
+
+### Private Git Repositories
+
+Set `initAdapterInstaller.gitCredentials.existingSecret` to a Secret with `username` and `password` keys (HTTPS). It is mounted read-only into the init container and handed to git through `GIT_ASKPASS`. The token is not written to the volume, the pod spec or the logs.
+
+```bash
+kubectl create secret generic adapter-git-credentials --from-literal=username=<user> --from-literal=password=<token>
 ```
 
 ### Advanced Configuration
@@ -138,6 +232,30 @@ npmInstallOptions:
   - "--production"
   - "--ignore-scripts"
 ```
+
+### Environment Variables (for example an HTTP proxy)
+
+`initAdapterInstaller.env` is a map of environment variable names to values that is set on the installer init container. Use it when git or npm must go through an HTTP proxy:
+
+```yaml
+initAdapterInstaller:
+  enabled: true
+  env:
+    HTTP_PROXY: "http://proxy.example.com:3128"
+    http_proxy: "http://proxy.example.com:3128"
+    HTTPS_PROXY: "http://proxy.example.com:3128"
+    https_proxy: "http://proxy.example.com:3128"
+    NO_PROXY: ".svc,.cluster.local,10.0.0.0/8,git.internal.example.com"
+    no_proxy: ".svc,.cluster.local,10.0.0.0/8,git.internal.example.com"
+```
+
+- **Set both the upper and lower case names.** Git reads proxy settings through libcurl, which ignores an upper case `HTTP_PROXY` and only honors a lower case `http_proxy` for plain `http://` URLs. `HTTPS_PROXY` and `NO_PROXY` work in either case.
+- **List internal hosts in `NO_PROXY`.** Include `.svc`, `.cluster.local`, your cluster's address ranges and any internal git server, or those requests go to the proxy.
+- **npm uses the same variables**, so `npm install` also reaches the registry through the proxy.
+- The variables are set on the init container only. To set variables for the Itential Platform container use the top level `env`.
+- Do not set `GIT_ASKPASS` or `GIT_TERMINAL_PROMPT` here. The chart sets them when `gitCredentials` is used.
+- Changing `env` changes the pod template, so the pods restart.
+- A proxy that inspects TLS needs its CA certificate trusted by git and npm (`GIT_SSL_CAINFO`, `NODE_EXTRA_CA_CERTS`). Mounting a CA bundle into the init container is not supported yet.
 
 ## How It Works
 
@@ -286,7 +404,8 @@ initAdapterInstaller:
 **Solution**:
 - Verify repository URL is accessible
 - Check network policies allow outbound HTTPS
-- Ensure repository exists and is public
+- Ensure the repository exists. For a private repository, set `initAdapterInstaller.gitCredentials.existingSecret` (see [Private Git Repositories](#private-git-repositories)). A wrong or expired token shows up in the init container log as `terminal prompts disabled` or `Authentication failed`
+- If the remote cannot be reached (expired token, network problem, git host down) and the adapter is already installed with its dependencies, the installer keeps the installed copy and logs `WARNING: cannot reach the git remote for <adapter>, keeping the installed copy`. The adapter is not updated until the remote is reachable again, so watch for that warning. Without an installed copy the clone fails and is reported as a failed installation
 
 #### 4. NPM Install Failures
 **Symptom**: `NPM install failed`

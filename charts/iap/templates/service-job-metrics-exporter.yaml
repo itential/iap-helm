@@ -1,0 +1,22 @@
+{{- if .Values.jobMetricsExporter.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "iap.fullname" . }}-job-metrics-exporter
+  labels:
+    {{- include "iap.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "job-metrics-exporter"
+  annotations:
+    kubernetes.io/description: "Itential Automation Platform Job Metrics Exporter service."
+    {{- include "iap.annotations" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: job-metrics
+      port: {{ .Values.jobMetricsExporter.port | default 9477 }}
+      targetPort: job-metrics
+      protocol: TCP
+  selector:
+    {{- include "iap.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: "job-metrics-exporter"
+{{- end -}}

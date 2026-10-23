@@ -45,15 +45,52 @@ initAdapterInstaller:
     - "--no-audit"
     - "--no-fund"
     - "--ignore-scripts"
+  # -- Extra environment variables for the adapter installer init container, as a map of name to value.
+  # Use it for settings that git and npm need, for example an HTTP proxy:
+  #   env:
+  #     HTTP_PROXY: "http://proxy.example.com:3128"
+  #     http_proxy: "http://proxy.example.com:3128"
+  #     HTTPS_PROXY: "http://proxy.example.com:3128"
+  #     https_proxy: "http://proxy.example.com:3128"
+  #     NO_PROXY: ".svc,.cluster.local,10.0.0.0/8"
+  #     no_proxy: ".svc,.cluster.local,10.0.0.0/8"
+  # Set both the upper and lower case names: git (libcurl) ignores an upper case HTTP_PROXY and only reads
+  # http_proxy for plain http:// URLs. These variables are set on the init container only. Use the top level
+  # `env` for the Itential Platform container. Do not set GIT_ASKPASS or GIT_TERMINAL_PROMPT here, the chart
+  # sets them when gitCredentials is used.
+  env: {}
+  # -- Credentials for cloning adapter repositories over HTTPS from a private git server.
+  # Create the Secret in the release namespace, for example:
+  #   kubectl create secret generic adapter-git-credentials --from-literal=username=<user> --from-literal=password=<token>
+  # The Secret is mounted read-only into the init container and handed to git through GIT_ASKPASS (works with the git 2.30 in the default node:18-bullseye image).
+  # The credentials are not written to the adapter volume or to the clone's .git/config.
+  gitCredentials:
+    # -- Name of an existing Secret holding the git credentials. Empty means anonymous clones.
+    existingSecret: ""
+    # -- Key in the Secret that holds the username
+    usernameKey: username
+    # -- Key in the Secret that holds the password or access token
+    passwordKey: password
   # -- List of adapter repositories to install
   # Each repository can be:
   # 1. A simple string URL (clones default branch)
   # 2. An object with 'url' and optional 'branch' fields
+  # 3. An object with 'type: folders': one repository that holds many adapter folders (a monorepo).
+  #    Optional 'path' is the directory inside the repository that contains the folders (default: the repository root).
+  #    Every folder with a package.json is installed as /opt/itential/platform/services/custom/<folder>.
+  #    Every folder gets npm install, except folders matching a pattern in the optional 'skipNpmInstall' list
+  #    (shell globs, for example "app-*"). Those are installed as committed, with the node_modules that are in git.
+  #    A folder that is removed from git is removed from the volume.
   repositories:
     # Examples (supports GitLab, GitHub, Bitbucket, and other Git providers):
     # - "https://gitlab.com/itentialopensource/adapters/adapter-example.git"  # Uses default branch
     # - url: "https://github.com/company/adapter-custom.git"
     #   branch: "v1.2.3"  # Clones specific branch/tag
+    # - url: "https://git.example.com/team/iap-adapters.git"
+    #   type: folders
+    #   branch: develop
+    #   path: ""  # optional
+    #   skipNpmInstall: ["app-*"]  # optional
   
 
 # Post-installation test configuration 
@@ -175,7 +212,7 @@ certificate:
   # -- Specifies any private key properties
   privateKey: {} # include all required properties, passed to the template as is
   # -- Specifies any key store properties
-  keyStores: {} # include all required properties, passed to the template as is
+  keystores: {} # include all required properties, passed to the template as is
   # -- Specifies any subject fields required
   subject: {} # include all required properties, passed to the template as is
 
@@ -411,6 +448,39 @@ processExporter:
     tag: latest
   # -- Process exporter metrics port
   port: 9256
+
+# Job Metrics Exporter configuration for monitoring IAP workflow engine metrics
+jobMetricsExporter:
+  # -- Enable the Job Metrics Exporter deployment
+  enabled: false
+  # -- Enable ingress rule exposing the /metrics endpoint via directAccess hostname
+  ingressEnabled: true
+  image:
+    # -- Job Metrics Exporter image repository (public image, no pull secret required)
+    repository: ghcr.io/itential/job-metrics-exporter
+    # -- Job Metrics Exporter image tag
+    tag: latest
+  # -- Port the exporter listens on
+  port: 9477
+  # -- Name of the Kubernetes secret containing the MongoDB URI. The URI must use a
+  # -- dedicated read-only MongoDB user (not the IAP user, which has read/write access).
+  # -- Example: kubectl create secret generic itential-job-metrics-secrets \
+  # --   --from-literal=ITENTIAL_JOB_METRIC_MONGO_URI='mongodb://ro-user:pass@host:27017/itential?replicaSet=rs0'
+  mongoSecretName: "itential-job-metrics-secrets"
+  # -- Key in the secret for the MongoDB URI
+  mongoSecretKey: "ITENTIAL_JOB_METRIC_MONGO_URI"
+  # -- MongoDB database name. Must match ITENTIAL_MONGO_DB_NAME. Defaults to "itential" if unset.
+  mongoDatabase: ""
+  # -- Enable change stream mode for real-time metrics (requires MongoDB replica set)
+  changeStreamEnabled: true
+  # -- Enable background polling mode for point-in-time status snapshots
+  pollingEnabled: false
+  # -- Polling interval (Go duration string, e.g. 60s, 2m)
+  pollingInterval: "60s"
+  # -- Log level (debug, info, warn, error)
+  logLevel: "info"
+  # -- Log format (json or text)
+  logFormat: "json"
 
 # Configuration properties for Itential Automation Platform.
 # In most cases, the default values are sufficient. If the property is commented that means that

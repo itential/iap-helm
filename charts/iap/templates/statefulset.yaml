@@ -83,6 +83,39 @@ spec:
             {{- end }}
             )
             
+            TYPES=(
+            {{- range .Values.initAdapterInstaller.repositories }}
+              {{- if kindIs "string" . }}
+              ""
+              {{- else }}
+              {{- if and .type (not (has .type (list "git" "folders"))) }}
+              {{- fail (printf "initAdapterInstaller.repositories: unknown type %q for %s (use git or folders)" .type .url) }}
+              {{- end }}
+              "{{ .type | default "" }}"
+              {{- end }}
+            {{- end }}
+            )
+
+            PATHS=(
+            {{- range .Values.initAdapterInstaller.repositories }}
+              {{- if kindIs "string" . }}
+              ""
+              {{- else }}
+              "{{ .path | default "" }}"
+              {{- end }}
+            {{- end }}
+            )
+
+            SKIP_NPM=(
+            {{- range .Values.initAdapterInstaller.repositories }}
+              {{- if kindIs "string" . }}
+              ""
+              {{- else }}
+              "{{ join " " (.skipNpmInstall | default list) }}"
+              {{- end }}
+            {{- end }}
+            )
+            
             # Execute the script from ConfigMap
             source /scripts/install-adapters.sh
         volumeMounts:
@@ -91,6 +124,24 @@ spec:
             readOnly: true
           - name: "{{ include "iap.fullname" . }}-assets-volume"
             mountPath: "/opt/itential/platform/services/custom"
+          {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+          - name: adapter-git-credentials
+            mountPath: "/git-credentials"
+            readOnly: true
+          {{- end }}
+        {{- if or .Values.initAdapterInstaller.env .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+        env:
+          {{- range $key, $value := .Values.initAdapterInstaller.env }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+          {{- end }}
+          {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+          - name: GIT_TERMINAL_PROMPT
+            value: "0"
+          - name: GIT_ASKPASS
+            value: "/scripts/git-askpass.sh"
+          {{- end }}
+        {{- end }}
         {{- if .Values.initAdapterInstaller.securityContext }}
         securityContext:
           {{- toYaml .Values.initAdapterInstaller.securityContext | nindent 12 }}
@@ -249,6 +300,12 @@ spec:
           configMap:
             name: {{ include "iap.fullname" . }}-adapter-installer
             defaultMode: 0755
+        {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+        - name: adapter-git-credentials
+          secret:
+            secretName: {{ .Values.initAdapterInstaller.gitCredentials.existingSecret | quote }}
+            defaultMode: 0444
+        {{- end }}
         {{- end }}
         {{- if .Values.useTLS }}
         - name: platform-cert-volume
