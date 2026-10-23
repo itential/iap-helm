@@ -10,6 +10,7 @@ The adapter installer uses a Kubernetes initContainer that runs before the main 
 
 - **Smart Version Detection**: Only reinstalls adapters when versions change
 - **Automatic Cleanup**: Removes obsolete adapters not in the repositories list
+- **Keeps Installed Adapters When Git Is Unreachable**: An expired token, a network problem or a git host outage does not remove an adapter that is already installed
 - **Branch/Tag Support**: Install specific versions or use default branches
 - **Multi-Repository**: Support for multiple adapter repositories
 - **One Repository, Many Adapters**: `type: folders` installs every adapter folder of a single repository and rebuilds only the folders that changed
@@ -404,6 +405,7 @@ initAdapterInstaller:
 - Verify repository URL is accessible
 - Check network policies allow outbound HTTPS
 - Ensure the repository exists. For a private repository, set `initAdapterInstaller.gitCredentials.existingSecret` (see [Private Git Repositories](#private-git-repositories)). A wrong or expired token shows up in the init container log as `terminal prompts disabled` or `Authentication failed`
+- If the remote cannot be reached (expired token, network problem, git host down) and the adapter is already installed with its dependencies, the installer keeps the installed copy and logs `WARNING: cannot reach the git remote for <adapter>, keeping the installed copy`. The adapter is not updated until the remote is reachable again, so watch for that warning. Without an installed copy the clone fails and is reported as a failed installation
 
 #### 4. NPM Install Failures
 **Symptom**: `NPM install failed`

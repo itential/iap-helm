@@ -389,3 +389,52 @@ tests:
       - matchRegex:
           path: data["install-adapters.sh"]
           pattern: '.*if \[ -f "\$STATE_DIR/\$EXISTING_DIR.tree" \].*'
+
+  - it: should check that the git remote is reachable before deciding an adapter changed
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'REMOTE_OK=true\s+git ls-remote origin HEAD >/dev/null 2>&1 \|\| REMOTE_OK=false'
+
+  - it: should keep an installed adapter with its dependencies when the git remote is unreachable
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'if \[ "\$REMOTE_OK" = "false" \]; then\s+if \[ -d "node_modules" \] && \[ "\$\(ls -A node_modules 2>/dev/null \| wc -l\)" -gt 0 \]; then'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'WARNING: cannot reach the git remote for \$ADAPTER_NAME, keeping the installed copy'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'NEEDS_INSTALL=false\s+SKIP_REASON="git remote unreachable, kept installed copy"'
+
+  - it: should reinstall when the git remote is unreachable and the dependencies are missing
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'Cannot reach the git remote and dependencies are missing, will try to reinstall'
+
+  - it: should report why an adapter installation was skipped
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'SKIP_REASON="already up to date"'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'Skipping \$ADAPTER_NAME installation \(\$SKIP_REASON\)'
