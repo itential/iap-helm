@@ -45,6 +45,20 @@ initAdapterInstaller:
     - "--no-audit"
     - "--no-fund"
     - "--ignore-scripts"
+  # -- Extra environment variables for the adapter installer init container, as a map of name to value.
+  # Use it for settings that git and npm need, for example an HTTP proxy:
+  #   env:
+  #     HTTP_PROXY: "http://proxy.example.com:3128"
+  #     http_proxy: "http://proxy.example.com:3128"
+  #     HTTPS_PROXY: "http://proxy.example.com:3128"
+  #     https_proxy: "http://proxy.example.com:3128"
+  #     NO_PROXY: ".svc,.cluster.local,10.0.0.0/8"
+  #     no_proxy: ".svc,.cluster.local,10.0.0.0/8"
+  # Set both the upper and lower case names: git (libcurl) ignores an upper case HTTP_PROXY and only reads
+  # http_proxy for plain http:// URLs. These variables are set on the init container only. Use the top level
+  # `env` for the Itential Platform container. Do not set GIT_ASKPASS or GIT_TERMINAL_PROMPT here, the chart
+  # sets them when gitCredentials is used.
+  env: {}
   # -- Credentials for cloning adapter repositories over HTTPS from a private git server.
   # Create the Secret in the release namespace, for example:
   #   kubectl create secret generic adapter-git-credentials --from-literal=username=<user> --from-literal=password=<token>

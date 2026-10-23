@@ -129,12 +129,18 @@ spec:
             mountPath: "/git-credentials"
             readOnly: true
           {{- end }}
-        {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
+        {{- if or .Values.initAdapterInstaller.env .Values.initAdapterInstaller.gitCredentials.existingSecret }}
         env:
+          {{- range $key, $value := .Values.initAdapterInstaller.env }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+          {{- end }}
+          {{- if .Values.initAdapterInstaller.gitCredentials.existingSecret }}
           - name: GIT_TERMINAL_PROMPT
             value: "0"
           - name: GIT_ASKPASS
             value: "/scripts/git-askpass.sh"
+          {{- end }}
         {{- end }}
         {{- if .Values.initAdapterInstaller.securityContext }}
         securityContext:
