@@ -194,6 +194,7 @@ Controlled by `initAdapterInstaller.enabled: true` + `mountAdapterVolume: true`.
 - Executes a bash script (`configmap-adapter-installer.yaml`) that:
   - Clones git repos (GitLab, GitHub, Bitbucket) into the adapters volume
   - Detects branch/tag changes and reinstalls only when needed
+  - Keeps an installed adapter (with its `node_modules`) when the git remote cannot be reached
   - Removes adapters no longer in the list
   - Runs `npm install` with configurable options
   - Sets permissions (775, itential:users)

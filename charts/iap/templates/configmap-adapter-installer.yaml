@@ -332,12 +332,25 @@ data:
         
         # Check if adapter already exists and is on the correct branch
         NEEDS_INSTALL=true
+        SKIP_REASON="already up to date"
         if [ -d "$ADAPTER_NAME" ]; then
             cd "$ADAPTER_NAME"
             
             # Check if it's a git repository
             if [ -d ".git" ]; then
-                if [ -n "$BRANCH" ]; then
+                # If the remote cannot be queried (expired token, network, git host down), keep a complete installed
+                # copy instead of treating the adapter as changed and deleting it
+                REMOTE_OK=true
+                git ls-remote origin HEAD >/dev/null 2>&1 || REMOTE_OK=false
+                if [ "$REMOTE_OK" = "false" ]; then
+                    if [ -d "node_modules" ] && [ "$(ls -A node_modules 2>/dev/null | wc -l)" -gt 0 ]; then
+                        echo "WARNING: cannot reach the git remote for $ADAPTER_NAME, keeping the installed copy (commit: $(git rev-parse --short=8 HEAD 2>/dev/null))"
+                        NEEDS_INSTALL=false
+                        SKIP_REASON="git remote unreachable, kept installed copy"
+                    else
+                        echo "Cannot reach the git remote and dependencies are missing, will try to reinstall"
+                    fi
+                elif [ -n "$BRANCH" ]; then
                     # Get the current commit hash
                     CURRENT_COMMIT=$(git rev-parse HEAD 2>/dev/null)
                     
@@ -388,7 +401,7 @@ data:
         fi
         
         if [ "$NEEDS_INSTALL" = "false" ]; then
-            echo "Skipping $ADAPTER_NAME installation (already up to date)"
+            echo "Skipping $ADAPTER_NAME installation ($SKIP_REASON)"
             SUCCESSFUL_INSTALLS+=("$ADAPTER_NAME (already installed)")
         else
             # Remove existing directory if it exists
