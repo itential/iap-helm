@@ -51,6 +51,21 @@ data:
         [ -d "$1/node_modules" ] && [ -n "$(ls -A "$1/node_modules" 2>/dev/null)" ]
     }
 
+    # Explains why npm install left no node_modules in $1. $2 is the file holding npm's output, $3 names the adapter.
+    explain_npm_failure() {
+        if [ ! -f "$1/package.json" ]; then
+            echo "  reason: no package.json at the top of $3. If this repository holds several adapters, set type: folders on its entry"
+        elif [ ! -d "$1/node_modules" ]; then
+            echo "  reason: npm install finished without creating node_modules"
+        else
+            echo "  reason: npm install left node_modules empty"
+        fi
+        if [ -s "$2" ]; then
+            echo "  last lines of npm output:"
+            tail -n 20 "$2" | sed 's/^/    /'
+        fi
+    }
+
     # True when folder $1 matches one of the glob patterns in $2 (space separated): its node_modules come from git
     # and npm install is not run for it. Globbing is only applied to the patterns, never to the file system.
     skips_npm() {
@@ -201,14 +216,18 @@ data:
                 echo "Running npm install for $name..."
                 export NPM_CONFIG_CACHE=/tmp/.npm
                 mkdir -p /tmp/.npm
-                (cd "$tmp" && npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund" "--ignore-scripts")) }} {{ . }}{{- end }} 2>/dev/null) || true
+                npm_log=$(mktemp)
+                (cd "$tmp" && npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund" "--ignore-scripts")) }} {{ . }}{{- end }} >"$npm_log" 2>&1) || true
                 if ! has_modules "$tmp"; then
                     echo "NPM install failed for $name, keeping the previous copy if there is one"
+                    explain_npm_failure "$tmp" "$npm_log" "$name"
+                    rm -f "$npm_log"
                     rm -rf "$tmp"
                     FAILED_INSTALLS+=("$name (npm install failed)")
                     failed=$((failed + 1))
                     continue
                 fi
+                rm -f "$npm_log"
             fi
     
             if [ -d "$name" ]; then mv "$name" "$old"; fi
@@ -430,18 +449,21 @@ data:
                     export NPM_CONFIG_CACHE=/tmp/.npm
                     mkdir -p /tmp/.npm
                     
-                    # Run npm install and capture exit code (ignore stderr for warnings)
-                    npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund" "--ignore-scripts")) }} {{ . }}{{- end }} 2>/dev/null
-                    NPM_EXIT_CODE=$?
+                    # Run npm install and capture exit code (output is kept to explain a failure)
+                    NPM_LOG=$(mktemp)
+                    NPM_EXIT_CODE=0
+                    npm install {{- range (.Values.initAdapterInstaller.npmInstallOptions | default (list "--silent" "--no-audit" "--no-fund" "--ignore-scripts")) }} {{ . }}{{- end }} >"$NPM_LOG" 2>&1 || NPM_EXIT_CODE=$?
                     
                     # Check if packages were actually installed regardless of exit code
                     if [ -d "node_modules" ] && [ "$(ls -A node_modules 2>/dev/null | wc -l)" -gt 0 ]; then
                         echo "NPM install completed successfully for $ADAPTER_NAME"
                         SUCCESSFUL_INSTALLS+=("$ADAPTER_NAME")
                     else
-                        echo "NPM install failed for $ADAPTER_NAME"
+                        echo "NPM install failed for $ADAPTER_NAME (npm exit code $NPM_EXIT_CODE)"
+                        explain_npm_failure "." "$NPM_LOG" "$ADAPTER_NAME"
                         FAILED_INSTALLS+=("$ADAPTER_NAME (npm install failed)")
                     fi
+                    rm -f "$NPM_LOG"
                     
                     cd /opt/itential/platform/services/custom
                 else

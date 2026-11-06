@@ -119,7 +119,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts >.* 2>&1.*"
 
   - it: should use custom npm install options when specified
     set:
@@ -132,7 +132,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --production --ignore-scripts 2>/dev/null.*"
+          pattern: ".*npm install --production --ignore-scripts >.* 2>&1.*"
 
   - it: should handle empty npmInstallOptions list
     set:
@@ -143,7 +143,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts >.* 2>&1.*"
 
   - it: should contain git clone logic
     set:
@@ -260,7 +260,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund --production --ignore-scripts --legacy-peer-deps 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --production --ignore-scripts --legacy-peer-deps >.* 2>&1.*"
 
   - it: should contain working directory setup
     set:
@@ -362,7 +362,7 @@ tests:
     asserts:
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: '.*\(cd "\$tmp" && npm install --production 2>/dev/null\).*'
+          pattern: '.*\(cd "\$tmp" && npm install --production >"\$npm_log" 2>&1\).*'
 
   - it: should keep folders when git cannot be read and remove only folders owned by the repository
     set:
@@ -438,3 +438,22 @@ tests:
       - matchRegex:
           path: data["install-adapters.sh"]
           pattern: 'Skipping \$ADAPTER_NAME installation \(\$SKIP_REASON\)'
+
+  - it: should explain why npm install failed instead of discarding npm output
+    set:
+      mountAdapterVolume: true
+      initAdapterInstaller:
+        enabled: true
+    asserts:
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'explain_npm_failure\(\) \{'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'no package.json at the top of \$3\. If this repository holds several adapters, set type: folders'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'echo "NPM install failed for \$name, keeping the previous copy if there is one"\s+explain_npm_failure "\$tmp" "\$npm_log" "\$name"'
+      - matchRegex:
+          path: data["install-adapters.sh"]
+          pattern: 'echo "NPM install failed for \$ADAPTER_NAME \(npm exit code \$NPM_EXIT_CODE\)"\s+explain_npm_failure "\." "\$NPM_LOG" "\$ADAPTER_NAME"'

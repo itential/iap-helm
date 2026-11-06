@@ -16,7 +16,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts >.* 2>&1.*"
 
   - it: should use default npm options when npmInstallOptions is null
     set:
@@ -31,7 +31,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts >.* 2>&1.*"
 
   - it: should handle empty npmInstallOptions array
     set:
@@ -46,7 +46,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --ignore-scripts >.* 2>&1.*"
 
   - it: should use custom single npm option
     set:
@@ -62,7 +62,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --production 2>/dev/null.*"
+          pattern: ".*npm install --production >.* 2>&1.*"
 
   - it: should use multiple custom npm options
     set:
@@ -80,7 +80,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --production --ignore-scripts 2>/dev/null.*"
+          pattern: ".*npm install --silent --production --ignore-scripts >.* 2>&1.*"
 
   - it: should handle npm options with special characters
     set:
@@ -97,7 +97,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --registry=https://registry.npmjs.org/ --cache=/tmp/npm-cache 2>/dev/null.*"
+          pattern: ".*npm install --registry=https://registry.npmjs.org/ --cache=/tmp/npm-cache >.* 2>&1.*"
 
   - it: should handle all common npm install options
     set:
@@ -120,7 +120,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --silent --no-audit --no-fund --production --ignore-scripts --no-optional --legacy-peer-deps --force 2>/dev/null.*"
+          pattern: ".*npm install --silent --no-audit --no-fund --production --ignore-scripts --no-optional --legacy-peer-deps --force >.* 2>&1.*"
 
   - it: should work with only verbose flags
     set:
@@ -137,7 +137,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --verbose --progress 2>/dev/null.*"
+          pattern: ".*npm install --verbose --progress >.* 2>&1.*"
 
   - it: should preserve exact option order
     set:
@@ -155,7 +155,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --force --silent --production 2>/dev/null.*"
+          pattern: ".*npm install --force --silent --production >.* 2>&1.*"
 
   - it: should work with custom npm config options
     set:
@@ -172,7 +172,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --userconfig=/tmp/.npmrc --globalconfig=/etc/npmrc 2>/dev/null.*"
+          pattern: ".*npm install --userconfig=/tmp/.npmrc --globalconfig=/etc/npmrc >.* 2>&1.*"
 
   - it: should handle options with values containing spaces
     set:
@@ -188,7 +188,7 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --prefix=/opt/custom path 2>/dev/null.*"
+          pattern: ".*npm install --prefix=/opt/custom path >.* 2>&1.*"
 
   - it: should work with minimal configuration
     set:
@@ -204,4 +204,4 @@ tests:
           count: 1
       - matchRegex:
           path: data["install-adapters.sh"]
-          pattern: ".*npm install --only=production 2>/dev/null.*"
+          pattern: ".*npm install --only=production >.* 2>&1.*"

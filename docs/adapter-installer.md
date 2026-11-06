@@ -413,7 +413,10 @@ initAdapterInstaller:
 **Solution**:
 - Check adapter's package.json is valid
 - Verify network access to npm registry
-- Review specific NPM error messages in logs
+- The log line after `NPM install failed` gives the reason (`no package.json at the top of <adapter>`, `npm install finished without creating node_modules`, or `npm install left node_modules empty`) and, when npm printed anything, its last 20 lines. With the default `--silent` option npm prints very little. To see its errors, remove `--silent` from `initAdapterInstaller.npmInstallOptions`
+- `no package.json at the top of <adapter>` means the repository root is not an adapter. If the repository holds several adapters in folders, set `type: folders` on its entry (see [One Repository With Many Adapter Folders](#4-one-repository-with-many-adapter-folders-type-folders)). The entry is treated as a single adapter when `type` is missing or misspelled, because unknown keys are ignored
+- To confirm what the pod received, run `kubectl get pod <pod-name> -n <namespace> -o jsonpath='{.spec.initContainers[0].args[1]}' | grep -A3 -E 'REPOS=|TYPES='`. `TYPES=( "folders" )` is expected for a folders repository, and an empty `""` means `type` did not reach the pod
+- A failed `npm install` is recorded in the final report and the installer continues with the next adapter
 
 #### 5. Pod Not Restarting After Repository Changes
 **Symptom**: Repository changes don't trigger adapter updates
